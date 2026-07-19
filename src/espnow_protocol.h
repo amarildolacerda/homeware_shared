@@ -199,7 +199,7 @@ typedef struct __attribute__((packed)) {
 #define PAIR_STATUS_DENIED 2
 
 static inline void mac_to_str(const uint8_t *mac, char *buf, size_t len) {
-    snprintf(buf, len, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    snprintf(buf, len, "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 }
 
 static inline bool mac_equal(const uint8_t *a, const uint8_t *b) {
