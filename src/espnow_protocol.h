@@ -4,6 +4,13 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <Arduino.h>
+
+#ifdef ESP32
+#include <esp_now.h>
+#else
+#include <espnow.h>
+#endif
 
 #define ESPNOW_PROTOCOL_VERSION 1
 #define ESPNOW_MAX_PAYLOAD 250
@@ -201,6 +208,31 @@ static inline bool mac_equal(const uint8_t *a, const uint8_t *b) {
 
 static inline void mac_copy(uint8_t *dst, const uint8_t *src) {
     memcpy(dst, src, 6);
+}
+
+// Envia via ESP-NOW e registra no console se foi BROADCAST ou UNICAST,
+// incluindo o MAC de destino. Substitui chamadas diretas a esp_now_send()
+// para centralizar o log (regra 17). Retorna true se enviado com sucesso.
+// Usa Serial.printf para nao acoplar ao ConsoleOutput (evita conflito com
+// console.h local dos clients); o telnet espelha Serial.
+static inline bool espnow_send_wrapper(const uint8_t *dst, const uint8_t *data,
+                                       size_t len, const char *tag) {
+    bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
+                     dst[3] == 0xFF && dst[4] == 0xFF && dst[5] == 0xFF);
+    char mac_str[18];
+    if (is_bcast) {
+        strcpy(mac_str, "FF:FF:FF:FF:FF:FF");
+    } else {
+        mac_to_str(dst, mac_str, sizeof(mac_str));
+    }
+    int ret = esp_now_send((uint8_t *)dst, (uint8_t *)data, len);
+    Serial.printf("[%s] ESP-NOW send %s -> %s: %s (%d bytes)\n",
+                   tag ? tag : "espnow",
+                   is_bcast ? "BROADCAST" : "UNICAST",
+                   mac_str,
+                   ret == 0 ? "ok" : "FAIL",
+                   (int)len);
+    return ret == 0;
 }
 
 #endif
