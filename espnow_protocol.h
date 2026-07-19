@@ -144,6 +144,21 @@ typedef struct __attribute__((packed)) {
     uint8_t reason;
 } espnow_nak_t;
 
+/* Pair request sent by clients (ESP-NOW broadcast, msg_type=0x02).
+   Layout mantido compatível com os clients em produção (campos gravados na
+   ordem: msg_type, sequence, sensor_mac, sensor_type, firmware_version,
+   device_name). client_chip é enviado como 0 por clients legados (ESP8266).
+   Regra 17: qualquer mudança nesta struct deve valer para gateway + clients. */
+typedef struct __attribute__((packed)) {
+    uint8_t  msg_type;
+    uint16_t sequence;
+    uint8_t  sensor_mac[6];
+    uint8_t  sensor_type;
+    uint8_t  firmware_version[4];
+    char     device_name[32];
+    uint8_t  client_chip;
+} espnow_pair_request_t;
+
 typedef struct __attribute__((packed)) {
     uint8_t msg_type;
     uint16_t sequence;
