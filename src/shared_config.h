@@ -25,6 +25,13 @@
 #define EEPROM_WIFI_DNS_OFFSET (EEPROM_WIFI_MASK_OFFSET + EEPROM_WIFI_MASK_SIZE)
 #define EEPROM_WIFI_DNS_SIZE 16
 
+// EEPROM layout shared by all clients (common_espnow.h):
+//   [0]    = MAGIC 0xAA (gateway MAC present)
+//   [1..6] = gateway MAC
+//   [10]   = marker 0xFF (device name present)
+//   [11..58] = device name (max 48 bytes)
+// Clients define additional device-specific EEPROM data after offset 60+.
+
 #define WIFI_CONFIG_PORTAL_SSID "ESPNOW_Setup"
 #define WIFI_CONFIG_PORTAL_PASS "password123"
 
