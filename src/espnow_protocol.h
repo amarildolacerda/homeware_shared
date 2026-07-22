@@ -136,6 +136,7 @@ typedef struct __attribute__((packed)) {
     uint16_t sequence;
     uint8_t target_mac[6];
     uint8_t command;
+    char target_device_id[32];
 } espnow_command_t;
 
 typedef struct __attribute__((packed)) {
