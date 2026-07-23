@@ -46,6 +46,7 @@ typedef enum {
     SENSOR_TYPE_LIGHT = 9,
     SENSOR_TYPE_REPEATER = 10,
     SENSOR_TYPE_DHT_RELE = 11,
+    SENSOR_TYPE_SOIL_MOISTURE = 12,
 } sensor_type_t;
 
 typedef enum {
@@ -114,6 +115,11 @@ typedef struct __attribute__((packed)) {
 typedef struct __attribute__((packed)) {
     uint8_t state;
 } payload_onoff_t;
+
+typedef struct __attribute__((packed)) {
+    uint16_t raw_adc;
+    uint8_t moisture_pct;
+} payload_soil_moisture_t;
 
 typedef struct __attribute__((packed)) {
     uint8_t msg_type;
