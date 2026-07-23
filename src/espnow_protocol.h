@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <Arduino.h>
+#include "shared_config.h"
 
 #ifdef ESP32
 #include <esp_now.h>
