@@ -143,7 +143,7 @@ bool timer_from_json(JsonDocument &doc) {
         s_timers[i].minute = t["minute"] | 0;
         s_timers[i].action = t["action"] | 0;
         s_timers[i].days_mask = t["days_mask"] | 0;
-        s_timers[i].enabled = t["enabled"] | false;
+            s_timers[i].enabled = (t["enabled"] | 0) != 0;
     }
     return true;
 }
@@ -168,7 +168,7 @@ bool timer_load_littlefs(void) {
             s_timers[i].minute = t["minute"] | 0;
             s_timers[i].action = t["action"] | 0;
             s_timers[i].days_mask = t["days_mask"] | 0;
-            s_timers[i].enabled = t["enabled"] | false;
+            s_timers[i].enabled = (t["enabled"] | 0) != 0;
         }
     }
     if (doc.containsKey("cyclic")) {
