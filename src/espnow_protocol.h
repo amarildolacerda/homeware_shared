@@ -51,8 +51,8 @@ typedef enum {
 
 typedef enum {
     HW_CHIP_UNKNOWN = 0xFF,
-    HW_CHIP_ESP8266 = 0,
-    HW_CHIP_ESP32 = 1,
+    HW_CHIP_ESP_1 = 0,   /* was HW_CHIP_ESP8266 */
+    HW_CHIP_ESP_2 = 1,   /* was HW_CHIP_ESP32 */
 } chip_type_t;
 
 typedef enum {
@@ -162,7 +162,7 @@ typedef struct __attribute__((packed)) {
 /* Pair request sent by clients (ESP-NOW broadcast, msg_type=0x02).
    Layout mantido compatível com os clients em produção (campos gravados na
    ordem: msg_type, sequence, sensor_mac, sensor_type, firmware_version,
-   device_name). client_chip é enviado como 0 por clients legados (ESP8266).
+   device_name). client_chip é enviado como HW_CHIP_ESP_1 por clients legados.
    Regra 17: qualquer mudança nesta struct deve valer para gateway + clients. */
 typedef struct __attribute__((packed)) {
     uint8_t  msg_type;
