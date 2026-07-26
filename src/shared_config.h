@@ -38,7 +38,7 @@
 #define ESP_NOW_CHANNEL 1
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.0.1"
+#define FW_VERSION "v1.1.0"
 #endif
 
 #endif
