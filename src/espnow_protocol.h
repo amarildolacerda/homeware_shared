@@ -7,10 +7,12 @@
 #include <Arduino.h>
 #include "shared_config.h"
 
+#ifndef LORA_DEVICE
 #ifdef ESP32
 #include <esp_now.h>
 #else
 #include <espnow.h>
+#endif
 #endif
 
 #define ESPNOW_PROTOCOL_VERSION 1
