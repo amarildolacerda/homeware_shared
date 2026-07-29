@@ -15,6 +15,11 @@ public:
     uint8_t assigned_slot() const override { return m_slot; }
     void force_repair() override;
 
+    void publish_state();
+    int16_t last_rssi() const { return m_last_rssi; }
+    uint32_t rx_count() const { return m_rx_count; }
+    uint32_t tx_count() const { return m_tx_count; }
+
     void set_mac(const uint8_t* mac);
     void set_pair_interval(unsigned long ms) { m_pair_interval_ms = ms; }
     void set_heartbeat_interval(unsigned long ms) { m_heartbeat_interval_ms = ms; }
@@ -35,6 +40,9 @@ private:
     unsigned long m_last_heartbeat_ms;
     unsigned long m_last_state_ms;
     uint8_t m_pair_attempts;
+    int16_t m_last_rssi;
+    uint32_t m_rx_count;
+    uint32_t m_tx_count;
 
     void send_pair_request();
     void send_sensor_data();

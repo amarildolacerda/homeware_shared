@@ -20,6 +20,9 @@ LoraNodeProtocol::LoraNodeProtocol(RadioInterface* radio)
     , m_last_heartbeat_ms(0)
     , m_last_state_ms(0)
     , m_pair_attempts(0)
+    , m_last_rssi(0)
+    , m_rx_count(0)
+    , m_tx_count(0)
 {
     memset(m_mac, 0, sizeof(m_mac));
     memset(m_device_name, 0, sizeof(m_device_name));
@@ -73,6 +76,11 @@ void LoraNodeProtocol::force_repair() {
     m_last_pair_ms = 0;
 }
 
+void LoraNodeProtocol::publish_state() {
+    m_last_state_ms = millis();
+    send_sensor_data();
+}
+
 void LoraNodeProtocol::send_pair_request() {
     lora_pair_request_t req;
     memset(&req, 0, sizeof(req));
@@ -84,6 +92,7 @@ void LoraNodeProtocol::send_pair_request() {
     strncpy(req.device_name, m_device_name, sizeof(req.device_name) - 1);
     req.device_name[sizeof(req.device_name) - 1] = '\0';
     m_radio->send((const uint8_t*)&req, sizeof(req));
+    m_tx_count++;
 }
 
 void LoraNodeProtocol::send_sensor_data() {
@@ -101,6 +110,7 @@ void LoraNodeProtocol::send_sensor_data() {
     frame->payload_len = payload_len;
     if (payload_len > 0) memcpy(frame->payload, payload, payload_len);
     m_radio->send(buf, LORA_HEADER_SIZE + payload_len);
+    m_tx_count++;
 }
 
 void LoraNodeProtocol::send_heartbeat() {
@@ -112,11 +122,13 @@ void LoraNodeProtocol::send_heartbeat() {
     frame->rssi = 0;
     frame->payload_len = 0;
     m_radio->send(buf, LORA_HEADER_SIZE);
+    m_tx_count++;
 }
 
 void LoraNodeProtocol::handle_frame(const uint8_t* data, size_t len, int16_t rssi, void* arg) {
-    (void)rssi;
     (void)arg;
+    m_last_rssi = rssi;
+    m_rx_count++;
     if (len < LORA_HEADER_SIZE) return;
     const lora_frame_t* frame = (const lora_frame_t*)data;
 
