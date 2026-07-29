@@ -225,6 +225,7 @@ static inline void mac_copy(uint8_t *dst, const uint8_t *src) {
 // para centralizar o log (regra 17). Retorna true se enviado com sucesso.
 // Usa Serial.printf para nao acoplar ao ConsoleOutput (evita conflito com
 // console.h local dos clients); o telnet espelha Serial.
+#ifndef LORA_DEVICE
 static inline bool espnow_send_wrapper(const uint8_t *dst, const uint8_t *data,
                                        size_t len, const char *tag) {
     bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
@@ -244,5 +245,6 @@ static inline bool espnow_send_wrapper(const uint8_t *dst, const uint8_t *data,
                    (int)len);
     return ret == 0;
 }
+#endif // !LORA_DEVICE
 
 #endif

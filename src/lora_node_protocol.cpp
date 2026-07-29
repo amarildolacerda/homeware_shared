@@ -1,5 +1,6 @@
 #include "lora_node_protocol.h"
 #include "lora_protocol.h"
+#include <Arduino.h>
 #include <string.h>
 
 static unsigned long s_default_pair_ms = 5000;
