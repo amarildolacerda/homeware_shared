@@ -11,6 +11,7 @@ struct NodeCallbacks {
     void    (*on_command)(uint8_t command);
     void    (*on_paired)(uint8_t slot);
     void    (*on_restart)();
+    void    (*on_forward)(const uint8_t* data, size_t len, const uint8_t* mac);
 };
 
 class NodeProtocol {
