@@ -15,16 +15,16 @@ public:
     uint8_t assigned_slot() const override { return m_slot; }
     void force_repair() override;
 
-    void publish_state();
+    void publish_state() override;
     int16_t last_rssi() const { return m_last_rssi; }
-    uint32_t rx_count() const { return m_rx_count; }
-    uint32_t tx_count() const { return m_tx_count; }
+    uint32_t rx_count() const override { return m_rx_count; }
+    uint32_t tx_count() const override { return m_tx_count; }
 
-    void set_mac(const uint8_t* mac);
-    void set_pair_interval(unsigned long ms) { m_pair_interval_ms = ms; }
-    void set_heartbeat_interval(unsigned long ms) { m_heartbeat_interval_ms = ms; }
-    void set_state_interval(unsigned long ms) { m_state_interval_ms = ms; }
-    void set_device_name(const char* name);
+    void set_mac(const uint8_t* mac) override;
+    void set_pair_interval(unsigned long ms) override { m_pair_interval_ms = ms; }
+    void set_heartbeat_interval(unsigned long ms) override { m_heartbeat_interval_ms = ms; }
+    void set_state_interval(unsigned long ms) override { m_state_interval_ms = ms; }
+    void set_device_name(const char* name) override;
 
 private:
     RadioInterface* m_radio;

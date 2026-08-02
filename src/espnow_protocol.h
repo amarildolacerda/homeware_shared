@@ -8,6 +8,7 @@
 #include "shared_config.h"
 #include "msg_type.h"
 #include "sensor_type.h"
+#include "common_util.h"
 
 #ifndef LORA_DEVICE
 #ifdef ESP32
@@ -181,17 +182,7 @@ typedef struct __attribute__((packed)) {
 #define PAIR_STATUS_FULL 1
 #define PAIR_STATUS_DENIED 2
 
-static inline void mac_to_str(const uint8_t *mac, char *buf, size_t len) {
-    snprintf(buf, len, "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-}
-
-static inline bool mac_equal(const uint8_t *a, const uint8_t *b) {
-    return memcmp(a, b, 6) == 0;
-}
-
-static inline void mac_copy(uint8_t *dst, const uint8_t *src) {
-    memcpy(dst, src, 6);
-}
+// mac_to_str, mac_equal, mac_copy now live in common_util.h
 
 // Envia via ESP-NOW e registra no console se foi BROADCAST ou UNICAST,
 // incluindo o MAC de destino. Substitui chamadas diretas a esp_now_send()
@@ -201,21 +192,21 @@ static inline void mac_copy(uint8_t *dst, const uint8_t *src) {
 #ifndef LORA_DEVICE
 static inline bool espnow_send_wrapper(const uint8_t *dst, const uint8_t *data,
                                        size_t len, const char *tag) {
-    bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
-                     dst[3] == 0xFF && dst[4] == 0xFF && dst[5] == 0xFF);
-    char mac_str[18];
-    if (is_bcast) {
-        strcpy(mac_str, "FF:FF:FF:FF:FF:FF");
-    } else {
-        mac_to_str(dst, mac_str, sizeof(mac_str));
-    }
     int ret = esp_now_send((uint8_t *)dst, (uint8_t *)data, len);
-    Serial.printf("[%s] ESP-NOW send %s -> %s: %s (%d bytes)\n",
-                   tag ? tag : "espnow",
-                   is_bcast ? "BROADCAST" : "UNICAST",
-                   mac_str,
-                   ret == 0 ? "ok" : "FAIL",
-                   (int)len);
+    if (ret != 0) {
+        bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
+                         dst[3] == 0xFF && dst[4] == 0xFF && dst[5] == 0xFF);
+        char mac_str[18];
+        if (is_bcast) {
+            strcpy(mac_str, "FF:FF:FF:FF:FF:FF");
+        } else {
+            mac_to_str(dst, mac_str, sizeof(mac_str));
+        }
+        Serial.printf("[%s] ESP-NOW FAIL %s -> %s (%d bytes)\n",
+                       tag ? tag : "espnow",
+                       is_bcast ? "BROADCAST" : "UNICAST",
+                       mac_str, (int)len);
+    }
     return ret == 0;
 }
 #endif // !LORA_DEVICE

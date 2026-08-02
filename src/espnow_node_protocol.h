@@ -15,23 +15,23 @@ public:
     uint8_t assigned_slot() const override { return m_slot; }
     void force_repair() override;
 
-    void publish_state();
+    void publish_state() override;
     void on_send_done(const uint8_t* mac, uint8_t status);
 
     int16_t last_rssi() const { return m_last_rssi; }
-    uint32_t tx_count() const { return m_tx_count; }
-    uint32_t rx_count() const { return m_rx_count; }
+    uint32_t tx_count() const override { return m_tx_count; }
+    uint32_t rx_count() const override { return m_rx_count; }
     uint8_t* my_mac() { return m_mac; }
 
-    void set_mac(const uint8_t* mac);
-    void set_device_name(const char* name);
-    void set_gateway_mac(const uint8_t* mac) { memcpy(m_gateway_mac, mac, 6); }
-    const uint8_t* gateway_mac() const { return m_gateway_mac; }
-    void load_gateway_mac();
-    void save_gateway_mac();
-    void set_pair_interval(unsigned long ms) { m_pair_interval_ms = ms; }
-    void set_heartbeat_interval(unsigned long ms) { m_heartbeat_interval_ms = ms; }
-    void set_state_interval(unsigned long ms) { m_state_interval_ms = ms; }
+    void set_mac(const uint8_t* mac) override;
+    void set_device_name(const char* name) override;
+    void set_gateway_mac(const uint8_t* mac) override { memcpy(m_gateway_mac, mac, 6); }
+    const uint8_t* gateway_mac() const override { return m_gateway_mac; }
+    void load_gateway_mac() override;
+    void save_gateway_mac() override;
+    void set_pair_interval(unsigned long ms) override { m_pair_interval_ms = ms; }
+    void set_heartbeat_interval(unsigned long ms) override { m_heartbeat_interval_ms = ms; }
+    void set_state_interval(unsigned long ms) override { m_state_interval_ms = ms; }
 
     void handle_frame(const uint8_t* mac, const uint8_t* data, size_t len);
 

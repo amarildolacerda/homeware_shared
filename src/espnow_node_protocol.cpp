@@ -63,6 +63,9 @@ void EspnowNodeProtocol::begin() {
     if (m_espnow_ready) {
         esp_now_register_send_cb(espnow_send_cb);
         esp_now_register_recv_cb(espnow_recv_cb);
+        /* Adicionar peer broadcast uma única vez — evita del+add em cada envio */
+        uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        espnow_client_add_peer(bc, "node");
     }
     m_paired = false;
     m_pair_attempts = 0;
@@ -98,6 +101,11 @@ void EspnowNodeProtocol::loop() {
             m_last_pair_ms = now;
             m_pair_attempts++;
             send_pair_request();
+        } else if (m_pair_attempts >= m_pair_attempts_max && callbacks.on_pairing_failed) {
+            /* All attempts on current AP exhausted — notify caller to try next AP */
+            m_pair_attempts = 0;
+            m_last_pair_ms = 0;
+            callbacks.on_pairing_failed();
         }
         return;
     }
@@ -171,7 +179,6 @@ void EspnowNodeProtocol::send_pair_request() {
     memcpy(req.sensor_mac, m_mac, 6);
     req.sensor_type = callbacks.get_sensor_type ? callbacks.get_sensor_type() : 0;
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-    espnow_client_add_peer(bc, "node");
     espnow_send_wrapper(bc, (uint8_t*)&req, sizeof(req), "node");
 }
 
@@ -193,7 +200,6 @@ void EspnowNodeProtocol::send_sensor_data() {
     hdr->payload_len = payload_len;
     if (payload_len > 0) memcpy(hdr->payload, payload, payload_len);
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-    espnow_client_add_peer(bc, "node");
     espnow_send_wrapper(bc, buf, ESPNOW_HEADER_FIXED_SIZE + payload_len, "node");
     m_last_send_sequence = hdr->sequence;
 }
@@ -210,7 +216,6 @@ void EspnowNodeProtocol::send_heartbeat() {
     hdr->rssi = 0;
     hdr->payload_len = 0;
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-    espnow_client_add_peer(bc, "node");
     espnow_send_wrapper(bc, buf, ESPNOW_HEADER_FIXED_SIZE, "node");
 }
 

@@ -1,5 +1,5 @@
 // shared/src/lora_spi_radio.cpp
-#ifdef LORA_DEVICE
+#ifdef LORA_ENABLED
 
 #include "lora_spi_radio.h"
 #include "lora_protocol.h"
@@ -54,4 +54,4 @@ void LoraSpiRadio::handle_rx() {
     }
 }
 
-#endif // LORA_DEVICE
+#endif // LORA_ENABLED
