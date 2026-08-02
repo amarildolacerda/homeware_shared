@@ -9,7 +9,7 @@ typedef enum : uint8_t {
     SENSOR_TYPE_MOTION = 3,
     SENSOR_TYPE_GAS = 4,
     SENSOR_TYPE_RAIN = 5,
-    SENSOR_TYPE_TANK = 6,
+    SENSOR_TYPE_LEVEL = 6,
     SENSOR_TYPE_DHT_GAS = 7,
     SENSOR_TYPE_ONOFF = 8,
     SENSOR_TYPE_LIGHT = 9,
