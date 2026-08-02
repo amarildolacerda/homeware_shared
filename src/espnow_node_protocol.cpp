@@ -6,6 +6,15 @@
 
 static EspnowNodeProtocol* s_self = nullptr;
 
+#if defined(ARDUINO_ARCH_ESP32)
+extern "C" void espnow_recv_cb(const uint8_t* mac, const uint8_t* data, int len) {
+    if (s_self) s_self->handle_frame(mac, data, (size_t)len);
+}
+
+extern "C" void espnow_send_cb(const uint8_t* mac, esp_now_send_status_t status) {
+    if (s_self) s_self->on_send_done(mac, (uint8_t)status);
+}
+#else
 extern "C" void espnow_recv_cb(uint8_t* mac, uint8_t* data, uint8_t len) {
     if (s_self) s_self->handle_frame(mac, data, len);
 }
@@ -13,6 +22,7 @@ extern "C" void espnow_recv_cb(uint8_t* mac, uint8_t* data, uint8_t len) {
 extern "C" void espnow_send_cb(uint8_t* mac, uint8_t status) {
     if (s_self) s_self->on_send_done(mac, status);
 }
+#endif
 
 EspnowNodeProtocol::EspnowNodeProtocol()
     : m_paired(false), m_slot(0), m_sequence(0), m_espnow_ready(false)

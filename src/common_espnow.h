@@ -28,13 +28,19 @@
 
 static inline bool espnow_client_init(const char *tag)
 {
+#if defined(ARDUINO_ARCH_ESP32)
+    WiFi.setSleep(false);
+#else
     WiFi.setSleepMode(WIFI_NONE_SLEEP);
+#endif
     if (esp_now_init() != 0)
     {
         Serial.printf("[%s] ESP-NOW init failed\n", tag ? tag : "client");
         return false;
     }
+#if !defined(ARDUINO_ARCH_ESP32)
     esp_now_set_self_role(ESP_NOW_ROLE_COMBO);
+#endif
     Serial.printf("[%s] ESP-NOW initialized\n", tag ? tag : "client");
     return true;
 }
@@ -45,7 +51,15 @@ static inline bool espnow_client_add_peer(const uint8_t *mac, const char *tag)
     int ch = WiFi.channel();
     if (ch < 1 || ch > 13)
         ch = 1;
+#if defined(ARDUINO_ARCH_ESP32)
+    esp_now_peer_info_t peer = {};
+    memcpy(peer.peer_addr, mac, 6);
+    peer.channel = ch;
+    peer.encrypt = false;
+    int ret = esp_now_add_peer(&peer);
+#else
     int ret = esp_now_add_peer((uint8_t *)mac, ESP_NOW_ROLE_COMBO, ch, NULL, 0);
+#endif
     if (ret != 0)
     {
         char mac_str[18];
