@@ -7,6 +7,7 @@
 #include <Arduino.h>
 #include "shared_config.h"
 #include "msg_type.h"
+#include "sensor_type.h"
 
 #ifndef LORA_DEVICE
 #ifdef ESP32
@@ -22,21 +23,6 @@
 #define ESPNOW_HEADER_FIXED_SIZE (sizeof(espnow_header_t) - sizeof(((espnow_header_t*)0)->payload))
 
 /* Unified message types in shared/src/msg_type.h */
-
-typedef enum {
-    SENSOR_TYPE_TEMP_HUM = 1,
-    SENSOR_TYPE_CONTACT = 2,
-    SENSOR_TYPE_MOTION = 3,
-    SENSOR_TYPE_GAS = 4,
-    SENSOR_TYPE_RAIN = 5,
-    SENSOR_TYPE_TANK = 6,
-    SENSOR_TYPE_DHT_GAS = 7,
-    SENSOR_TYPE_ONOFF = 8,
-    SENSOR_TYPE_LIGHT = 9,
-    SENSOR_TYPE_REPEATER = 10,
-    SENSOR_TYPE_DHT_RELE = 11,
-    SENSOR_TYPE_SOIL_MOISTURE = 12,
-} sensor_type_t;
 
 typedef enum {
     HW_CHIP_UNKNOWN = 0xFF,
