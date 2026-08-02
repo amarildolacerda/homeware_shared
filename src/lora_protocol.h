@@ -2,6 +2,7 @@
 #define HW_SHARED_LORA_PROTOCOL_H
 
 #include <stdint.h>
+#include "msg_type.h"
 
 #pragma pack(push, 1)
 
@@ -53,15 +54,7 @@ typedef struct {
 
 #pragma pack(pop)
 
-enum lora_msg_type_t {
-    LORA_MSG_SENSOR_DATA   = 0x01,
-    LORA_MSG_PAIR_REQUEST  = 0x02,
-    LORA_MSG_PAIR_RESPONSE = 0x03,
-    LORA_MSG_HEARTBEAT     = 0x04,
-    LORA_MSG_NAK           = 0x05,
-    LORA_MSG_GW_ANNOUNCE   = 0x06,
-    LORA_MSG_COMMAND       = 0x07,
-};
+/* Unified message types in shared/src/msg_type.h */
 
 #define LORA_HEADER_SIZE   11
 #define LORA_MAX_PAYLOAD   200

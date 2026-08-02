@@ -84,7 +84,7 @@ void LoraNodeProtocol::publish_state() {
 void LoraNodeProtocol::send_pair_request() {
     lora_pair_request_t req;
     memset(&req, 0, sizeof(req));
-    req.msg_type = LORA_MSG_PAIR_REQUEST;
+    req.msg_type = MSG_PAIR_REQUEST;
     req.sequence = m_sequence++;
     memcpy(req.sensor_id, m_mac, 6);
     req.payload_len = 1;
@@ -103,7 +103,7 @@ void LoraNodeProtocol::send_sensor_data() {
     }
     uint8_t buf[LORA_HEADER_SIZE + payload_len];
     lora_frame_t* frame = (lora_frame_t*)buf;
-    frame->msg_type = LORA_MSG_SENSOR_DATA;
+    frame->msg_type = MSG_SENSOR_DATA;
     frame->sequence = m_sequence++;
     memcpy(frame->sensor_id, m_mac, 6);
     frame->rssi = 0;
@@ -116,7 +116,7 @@ void LoraNodeProtocol::send_sensor_data() {
 void LoraNodeProtocol::send_heartbeat() {
     uint8_t buf[LORA_HEADER_SIZE];
     lora_frame_t* frame = (lora_frame_t*)buf;
-    frame->msg_type = LORA_MSG_HEARTBEAT;
+    frame->msg_type = MSG_HEARTBEAT;
     frame->sequence = m_sequence++;
     memcpy(frame->sensor_id, m_mac, 6);
     frame->rssi = 0;
@@ -132,7 +132,7 @@ void LoraNodeProtocol::handle_frame(const uint8_t* data, size_t len, int16_t rss
     if (len < LORA_HEADER_SIZE) return;
     const lora_frame_t* frame = (const lora_frame_t*)data;
 
-    if (frame->msg_type == LORA_MSG_PAIR_RESPONSE) {
+    if (frame->msg_type == MSG_PAIR_RESPONSE) {
         if (len >= sizeof(lora_pair_response_t)) {
             const lora_pair_response_t* resp = (const lora_pair_response_t*)data;
             if (memcmp(resp->sensor_id, m_mac, 6) == 0) {
@@ -144,7 +144,7 @@ void LoraNodeProtocol::handle_frame(const uint8_t* data, size_t len, int16_t rss
                 m_last_state_ms = millis();
             }
         }
-    } else if (frame->msg_type == LORA_MSG_COMMAND) {
+    } else if (frame->msg_type == MSG_COMMAND) {
         if (len >= sizeof(lora_command_t)) {
             const lora_command_t* cmd = (const lora_command_t*)data;
             if (memcmp(cmd->sensor_id, m_mac, 6) == 0) {

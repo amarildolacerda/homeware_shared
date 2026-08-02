@@ -156,7 +156,7 @@ void EspnowNodeProtocol::on_send_done(const uint8_t* mac, uint8_t status) {
 void EspnowNodeProtocol::send_pair_request() {
     espnow_pair_request_t req;
     memset(&req, 0, sizeof(req));
-    req.msg_type = ESPNOW_MSG_PAIR_REQUEST;
+    req.msg_type = MSG_PAIR_REQUEST;
     req.sequence = m_sequence++;
     memcpy(req.sensor_mac, m_mac, 6);
     req.sensor_type = callbacks.get_sensor_type ? callbacks.get_sensor_type() : 0;
@@ -174,7 +174,7 @@ void EspnowNodeProtocol::send_sensor_data() {
     uint8_t buf[ESPNOW_HEADER_FIXED_SIZE + payload_len + 4];
     espnow_header_t* hdr = (espnow_header_t*)buf;
     hdr->version = ESPNOW_PROTOCOL_VERSION;
-    hdr->msg_type = ESPNOW_MSG_SENSOR_DATA;
+    hdr->msg_type = MSG_SENSOR_DATA;
     hdr->sequence = m_sequence++;
     memcpy(hdr->sensor_mac, m_mac, 6);
     hdr->sensor_type = callbacks.get_sensor_type ? callbacks.get_sensor_type() : 0;
@@ -192,7 +192,7 @@ void EspnowNodeProtocol::send_heartbeat() {
     uint8_t buf[ESPNOW_HEADER_FIXED_SIZE];
     espnow_header_t* hdr = (espnow_header_t*)buf;
     hdr->version = ESPNOW_PROTOCOL_VERSION;
-    hdr->msg_type = ESPNOW_MSG_HEARTBEAT;
+    hdr->msg_type = MSG_HEARTBEAT;
     hdr->sequence = m_sequence++;
     memcpy(hdr->sensor_mac, m_mac, 6);
     hdr->sensor_type = 0;
@@ -211,7 +211,7 @@ void EspnowNodeProtocol::handle_frame(const uint8_t* mac, const uint8_t* data, s
 
     uint8_t msg_type = data[0];
 
-    if (msg_type == ESPNOW_MSG_PAIR_RESPONSE) {
+    if (msg_type == MSG_PAIR_RESPONSE) {
         if (len >= sizeof(espnow_pair_response_t)) {
             const espnow_pair_response_t* resp = (const espnow_pair_response_t*)data;
             if (memcmp(resp->sensor_mac, m_mac, 6) == 0) {
@@ -224,7 +224,7 @@ void EspnowNodeProtocol::handle_frame(const uint8_t* mac, const uint8_t* data, s
                 m_last_state_ms = 0;
             }
         }
-    } else if (msg_type == ESPNOW_MSG_ACK) {
+    } else if (msg_type == MSG_ACK) {
         if (len >= sizeof(espnow_ack_t)) {
             const espnow_ack_t* ack = (const espnow_ack_t*)data;
             if (ack->sequence == m_last_send_sequence) {
@@ -234,28 +234,28 @@ void EspnowNodeProtocol::handle_frame(const uint8_t* mac, const uint8_t* data, s
                 }
             }
         }
-    } else if (msg_type == ESPNOW_MSG_NAK) {
+    } else if (msg_type == MSG_NAK) {
         if (len >= sizeof(espnow_nak_t)) {
             const espnow_nak_t* nak = (const espnow_nak_t*)data;
             if (nak->reason == NAK_REASON_GATEWAY_LOST) {
                 force_repair();
             }
         }
-    } else if (msg_type == ESPNOW_MSG_RESTART) {
+    } else if (msg_type == MSG_RESTART) {
         if (len >= sizeof(espnow_restart_t)) {
             const espnow_restart_t* rst = (const espnow_restart_t*)data;
             if (memcmp(rst->target_mac, m_mac, 6) == 0) {
                 if (callbacks.on_restart) callbacks.on_restart();
             }
         }
-    } else if (msg_type == ESPNOW_MSG_COMMAND) {
+    } else if (msg_type == MSG_COMMAND) {
         if (len >= sizeof(espnow_command_t)) {
             const espnow_command_t* cmd = (const espnow_command_t*)data;
             if (memcmp(cmd->target_mac, m_mac, 6) == 0) {
                 if (callbacks.on_command) callbacks.on_command(cmd->command);
             }
         }
-    } else if (msg_type == ESPNOW_MSG_TIME_SYNC) {
+    } else if (msg_type == MSG_TIME_SYNC) {
     } else {
         if (callbacks.on_forward) {
             callbacks.on_forward(data, len, mac);

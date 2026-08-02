@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <Arduino.h>
 #include "shared_config.h"
+#include "msg_type.h"
 
 #ifndef LORA_DEVICE
 #ifdef ESP32
@@ -20,21 +21,7 @@
 #define ESPNOW_SEQUENCE_MAX 65535
 #define ESPNOW_HEADER_FIXED_SIZE (sizeof(espnow_header_t) - sizeof(((espnow_header_t*)0)->payload))
 
-typedef enum {
-    ESPNOW_MSG_SENSOR_DATA = 0x01,
-    ESPNOW_MSG_PAIR_REQUEST = 0x02,
-    ESPNOW_MSG_PAIR_RESPONSE = 0x03,
-    ESPNOW_MSG_ACK = 0x04,
-    ESPNOW_MSG_HEARTBEAT = 0x05,
-    ESPNOW_MSG_OTA_TRIGGER = 0x06,
-    ESPNOW_MSG_COMMAND = 0x07,
-    ESPNOW_MSG_TIME_SYNC = 0x08,
-    ESPNOW_MSG_GW_ANNOUNCE = 0x09,
-    ESPNOW_MSG_GW_DISCOVER = 0x0A,
-    ESPNOW_MSG_REPEATER_STATUS = 0x0B,
-    ESPNOW_MSG_RESTART = 0x0C,
-    ESPNOW_MSG_NAK = 0x0D,
-} espnow_msg_type_t;
+/* Unified message types in shared/src/msg_type.h */
 
 typedef enum {
     SENSOR_TYPE_TEMP_HUM = 1,
