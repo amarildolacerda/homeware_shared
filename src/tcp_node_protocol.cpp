@@ -21,6 +21,7 @@
 
 #define HTTP_TIMEOUT_MS 3000
 #define DISCOVER_INTERVAL_MS 10000
+#define REREGISTER_INTERVAL_MS 120000
 
 static const char* TAG = "tcp-node";
 
@@ -29,7 +30,8 @@ TcpNodeProtocol::TcpNodeProtocol()
     , m_hub_port(TCP_HTTP_PORT)
     , m_pair_interval_ms(5000), m_heartbeat_interval_ms(60000)
     , m_state_interval_ms(60000), m_last_state_ms(0)
-    , m_last_heartbeat_ms(0), m_last_discover_ms(0)
+    , m_last_heartbeat_ms(0), m_last_discover_ms(0), m_last_register_ms(0)
+    , m_last_command_check_ms(0)
     , m_tx_count(0), m_rx_count(0)
 {
     memset(m_mac, 0, sizeof(m_mac));
@@ -73,7 +75,10 @@ void TcpNodeProtocol::begin() {
 }
 
 bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
-    if (WiFi.status() != WL_CONNECTED) return false;
+    if (WiFi.status() != WL_CONNECTED) {
+         console.printf("WIFI Desconectado");
+        return false;
+    }
     WiFiClient client;
     HTTPClient http;
     String url = String("http://") + m_hub_ip + ":" + String(m_hub_port) + endpoint;
@@ -141,6 +146,9 @@ bool TcpNodeProtocol::register_with_hub() {
 
 void TcpNodeProtocol::check_commands() {
     if (!m_registered || WiFi.status() != WL_CONNECTED) return;
+    unsigned long now = millis();
+    if (now - m_last_command_check_ms < 1000) return;
+    m_last_command_check_ms = now;
     WiFiClient client;
     HTTPClient http;
     String url = String("http://") + m_hub_ip + ":" + String(m_hub_port) + "/node/command/" + m_device_id;
@@ -152,9 +160,8 @@ void TcpNodeProtocol::check_commands() {
             String response = http.getString();
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, response);
-            if (!err && doc["command"].is<const char*>()) {
+            if (!err && doc.containsKey("command") && !doc["command"].isNull()) {
                 const char* cmd = doc["command"];
-                console.printf("[%s] Command: %s\n", TAG, cmd);
                 if (strcmp(cmd, "restart") == 0) {
                     if (callbacks.on_restart) callbacks.on_restart();
                 } else if (callbacks.on_command) {
@@ -179,17 +186,34 @@ void TcpNodeProtocol::loop() {
 
     // Register if hub known but not registered
     if (m_hub_found && !m_registered) {
+        if (register_with_hub()) {
+            // Publish initial state (incl. IP) right after registering so the
+            // hub has the node's IP and current state without waiting for the
+            // first periodic interval.
+            publish_state();
+        }
+    }
+
+    // Periodic re-registration (handles hub reboot that regenerates bridge_device_id)
+    if (m_registered && m_hub_found && now - m_last_register_ms > REREGISTER_INTERVAL_MS) {
+        m_last_register_ms = now;
         register_with_hub();
     }
 
-    // Heartbeat
-    if (m_registered && now - m_last_heartbeat_ms > m_heartbeat_interval_ms) {
-        m_last_heartbeat_ms = now;
-        JsonDocument doc;
-        doc["device_id"] = m_device_id;
-        String payload;
-        serializeJson(doc, payload);
-        send_to_hub("/node/heartbeat", payload);
+    // Periodic state + heartbeat
+    if (m_registered) {
+        if (now - m_last_state_ms > m_state_interval_ms) {
+            m_last_state_ms = now;
+            publish_state();
+        }
+        if (now - m_last_heartbeat_ms > m_heartbeat_interval_ms) {
+            m_last_heartbeat_ms = now;
+            JsonDocument doc;
+            doc["device_id"] = m_device_id;
+            String payload;
+            serializeJson(doc, payload);
+            send_to_hub("/node/heartbeat", payload);
+        }
     }
 
     // Poll commands
@@ -197,7 +221,11 @@ void TcpNodeProtocol::loop() {
 }
 
 void TcpNodeProtocol::publish_state() {
-    if (!m_registered || WiFi.status() != WL_CONNECTED) return;
+    if (!m_registered || WiFi.status() != WL_CONNECTED) 
+    {
+        console.printf("WIFI %s", WiFi.status() != WL_CONNECTED ? "Desconectado" : "Nao registrado");
+        return;
+    }   
 
     JsonDocument doc;
     doc["device_id"] = m_device_id;
@@ -219,6 +247,7 @@ void TcpNodeProtocol::publish_state() {
         if (len >= sizeof(payload_onoff_t)) {
             payload_onoff_t* pl = (payload_onoff_t*)buf;
             doc["relay_state"] = (pl->state != 0);
+            doc["state"] = (pl->state != 0);
         }
     }
 

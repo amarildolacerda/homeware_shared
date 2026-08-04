@@ -26,6 +26,8 @@
 #else
   #include <ESP8266WiFi.h>
   #include <ESP8266WebServer.h>
+  #include <ESP8266HTTPClient.h>
+  #include <WiFiClient.h>
   #include <espnow.h>
   #define PLATFORM_PREFIX "agri"
   typedef ESP8266WebServer MyWebServer;

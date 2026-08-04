@@ -14,7 +14,8 @@ typedef EspnowNodeProtocol NodeRadioType;
 #include "lora_node_protocol.h"
 typedef LoraNodeProtocol NodeRadioType;
 #else
-#error "Define one of: TCP_ENABLED, ESPNOW_ENABLED, LORA_ENABLED"
+#include "none_node_protocol.h"
+typedef NoneRadio NodeRadioType;
 #endif
 
 #endif

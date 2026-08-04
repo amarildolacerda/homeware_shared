@@ -56,6 +56,8 @@ private:
     unsigned long m_last_state_ms;
     unsigned long m_last_heartbeat_ms;
     unsigned long m_last_discover_ms;
+    unsigned long m_last_register_ms;
+    unsigned long m_last_command_check_ms;
     unsigned long m_tx_count;
     unsigned long m_rx_count;
 

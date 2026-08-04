@@ -9,6 +9,7 @@
 #include "msg_type.h"
 #include "sensor_type.h"
 #include "common_util.h"
+#include "common_types.h"
 
 #ifndef LORA_DEVICE
 #ifdef ESP32
@@ -87,10 +88,6 @@ typedef struct __attribute__((packed)) {
     uint16_t level_pct;
     uint16_t distance_cm;
 } payload_tank_t;
-
-typedef struct __attribute__((packed)) {
-    uint8_t state;
-} payload_onoff_t;
 
 typedef struct __attribute__((packed)) {
     uint16_t raw_adc;

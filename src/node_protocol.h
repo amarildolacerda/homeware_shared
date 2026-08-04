@@ -46,7 +46,7 @@ public:
     // Counters
     virtual uint32_t tx_count() const { return 0; }
     virtual uint32_t rx_count() const { return 0; }
-
+    virtual bool has_gateway() const { return true; }
     NodeCallbacks callbacks;
 };
 
