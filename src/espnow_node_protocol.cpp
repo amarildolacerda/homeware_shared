@@ -178,6 +178,8 @@ void EspnowNodeProtocol::send_pair_request() {
     req.sequence = m_sequence++;
     memcpy(req.sensor_mac, m_mac, 6);
     req.sensor_type = callbacks.get_sensor_type ? callbacks.get_sensor_type() : 0;
+    strncpy(req.device_name, m_device_name, sizeof(req.device_name) - 1);
+    req.device_name[sizeof(req.device_name) - 1] = '\0';
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     espnow_send_wrapper(bc, (uint8_t*)&req, sizeof(req), "node");
 }
