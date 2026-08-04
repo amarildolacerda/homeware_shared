@@ -2,13 +2,13 @@
 #define HW_SHARED_WEB_H
 
 #include <Arduino.h>
-#include <ESP8266WebServer.h>
+#include "platform.h"
 #include <ArduinoJson.h>
 
 // Serve PROGMEM HTML page chunked (avoids heap fragmentation on ESP8266).
 // Call from your route handler:
 //   serve_pgm_page(s_server, PAGE_DASHBOARD);
-static inline void serve_pgm_page(ESP8266WebServer &server, const char *page)
+static inline void serve_pgm_page(MyWebServer &server, const char *page)
 {
     size_t total = strlen_P(page);
     WiFiClient cl = server.client();
@@ -31,7 +31,7 @@ static inline void serve_pgm_page(ESP8266WebServer &server, const char *page)
 // Read/write a GPIO pin via JSON API.
 // GET  /api/pin?gpio=N  — read pin state
 // POST /api/pin         — {"gpio":N, "state":0|1}
-static inline void handle_api_pin(ESP8266WebServer &server)
+static inline void handle_api_pin(MyWebServer &server)
 {
     if (server.method() == HTTP_GET)
     {
