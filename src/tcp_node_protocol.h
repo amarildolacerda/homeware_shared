@@ -68,6 +68,9 @@ private:
     unsigned long m_tx_count;
     unsigned long m_rx_count;
 
+    unsigned long m_last_hub_contact_ms;
+    unsigned long m_last_wifi_ok_ms;
+
     WiFiUDP m_udp;
 
     void send_udp_discover();
