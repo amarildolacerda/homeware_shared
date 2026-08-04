@@ -154,7 +154,7 @@ bool timer_load_littlefs(void) {
     if (!LittleFS.exists(TIMER_LITTLEFS_FILE)) return false;
     File f = LittleFS.open(TIMER_LITTLEFS_FILE, "r");
     if (!f) return false;
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     DeserializationError err = deserializeJson(doc, f);
     f.close();
     if (err) return false;
@@ -185,7 +185,7 @@ bool timer_load_littlefs(void) {
 }
 
 bool timer_save_littlefs(void) {
-    StaticJsonDocument<1024> doc;
+    JsonDocument doc;
     JsonArray arr = doc["timers"].to<JsonArray>();
     for (int i = 0; i < s_max_timers; i++) {
         JsonObject t = arr.add<JsonObject>();
