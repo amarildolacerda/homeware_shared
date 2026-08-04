@@ -7,6 +7,7 @@
   #include <WiFi.h>
   #include <WebServer.h>
   #include <esp_now.h>
+  #include <Update.h>
   #define PLATFORM_PREFIX "agri"
   typedef WebServer MyWebServer;
 
@@ -29,6 +30,7 @@
   #include <ESP8266HTTPClient.h>
   #include <WiFiClient.h>
   #include <espnow.h>
+  #include <Updater.h>
   #define PLATFORM_PREFIX "agri"
   typedef ESP8266WebServer MyWebServer;
 
