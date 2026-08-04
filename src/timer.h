@@ -23,4 +23,30 @@ void timer_get_next(unsigned long current_epoch, int timezone_offset,
 void timer_to_json(JsonDocument &doc);
 bool timer_from_json(JsonDocument &doc);
 
+// --- Cyclic timer ---
+
+typedef struct __attribute__((packed)) {
+    uint8_t  enabled;
+    uint16_t duration_min;
+} cyclic_config_t;
+
+int8_t cyclic_check(unsigned long now_ms, bool current_relay_state);
+void   cyclic_reset(void);
+bool   cyclic_get_enabled(void);
+uint16_t cyclic_get_duration(void);
+void   cyclic_set_enabled(bool enabled);
+void   cyclic_set_duration(uint16_t min);
+
+// --- LittleFS persistence ---
+
+bool timer_save_littlefs(void);
+bool timer_load_littlefs(void);
+
+// --- Pulse config (persistence only — runtime logic stays in client) ---
+
+bool     timer_pulse_get_enabled(void);
+uint16_t timer_pulse_get_duration(void);
+void     timer_pulse_set_enabled(bool enabled);
+void     timer_pulse_set_duration(uint16_t min);
+
 #endif

@@ -7,7 +7,7 @@
   #include <WiFi.h>
   #include <WebServer.h>
   #include <esp_now.h>
-  #define PLATFORM_PREFIX "esp32"
+  #define PLATFORM_PREFIX "agri"
   typedef WebServer MyWebServer;
 
   static inline uint32_t chip_id() {
@@ -26,8 +26,10 @@
 #else
   #include <ESP8266WiFi.h>
   #include <ESP8266WebServer.h>
+  #include <ESP8266HTTPClient.h>
+  #include <WiFiClient.h>
   #include <espnow.h>
-  #define PLATFORM_PREFIX "esp8266"
+  #define PLATFORM_PREFIX "agri"
   typedef ESP8266WebServer MyWebServer;
 
   static inline uint32_t chip_id() {

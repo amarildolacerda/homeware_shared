@@ -24,12 +24,31 @@
 #define EEPROM_WIFI_MASK_SIZE 16
 #define EEPROM_WIFI_DNS_OFFSET (EEPROM_WIFI_MASK_OFFSET + EEPROM_WIFI_MASK_SIZE)
 #define EEPROM_WIFI_DNS_SIZE 16
+#define EEPROM_WIFI_CHANNEL_OFFSET (EEPROM_WIFI_DNS_OFFSET + EEPROM_WIFI_DNS_SIZE)
+#define EEPROM_WIFI_CHANNEL_SIZE 1
+
+// EEPROM layout shared by all clients (common_espnow.h):
+//   [0]    = MAGIC 0xAA (gateway MAC present)
+//   [1..6] = gateway MAC
+//   [10]   = marker 0xFF (device name present)
+//   [11..58] = device name (max 48 bytes)
+// Clients define additional device-specific EEPROM data after offset 60+.
 
 #define WIFI_CONFIG_PORTAL_SSID "ESPNOW_Setup"
 #define WIFI_CONFIG_PORTAL_PASS "password123"
 
 #define ESP_NOW_CHANNEL 1
 
-#define FW_VERSION "v0.0.29"
+#ifndef FW_VERSION
+#define FW_VERSION "v1.2.4"
+#endif
+
+// TCP node defaults
+#ifndef HUB_IP_DEFAULT
+#define HUB_IP_DEFAULT "192.168.1.100"
+#endif
+#ifndef HUB_PORT
+#define HUB_PORT 80
+#endif
 
 #endif

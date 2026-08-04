@@ -33,6 +33,10 @@ int ConsoleOutput::telnet_read() {
     return -1;
 }
 
+bool ConsoleOutput::telnet_connected() {
+    return m_client && m_client.connected();
+}
+
 size_t ConsoleOutput::write(uint8_t c) {
     Serial.write(c);
     if (m_client && m_client.connected()) {

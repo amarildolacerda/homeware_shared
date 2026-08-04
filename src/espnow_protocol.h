@@ -5,11 +5,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <Arduino.h>
+#include "shared_config.h"
+#include "msg_type.h"
+#include "sensor_type.h"
+#include "common_util.h"
+#include "common_types.h"
 
+#ifndef LORA_DEVICE
 #ifdef ESP32
 #include <esp_now.h>
 #else
 #include <espnow.h>
+#endif
 #endif
 
 #define ESPNOW_PROTOCOL_VERSION 1
@@ -17,40 +24,12 @@
 #define ESPNOW_SEQUENCE_MAX 65535
 #define ESPNOW_HEADER_FIXED_SIZE (sizeof(espnow_header_t) - sizeof(((espnow_header_t*)0)->payload))
 
-typedef enum {
-    ESPNOW_MSG_SENSOR_DATA = 0x01,
-    ESPNOW_MSG_PAIR_REQUEST = 0x02,
-    ESPNOW_MSG_PAIR_RESPONSE = 0x03,
-    ESPNOW_MSG_ACK = 0x04,
-    ESPNOW_MSG_HEARTBEAT = 0x05,
-    ESPNOW_MSG_OTA_TRIGGER = 0x06,
-    ESPNOW_MSG_COMMAND = 0x07,
-    ESPNOW_MSG_TIME_SYNC = 0x08,
-    ESPNOW_MSG_GW_ANNOUNCE = 0x09,
-    ESPNOW_MSG_GW_DISCOVER = 0x0A,
-    ESPNOW_MSG_REPEATER_STATUS = 0x0B,
-    ESPNOW_MSG_RESTART = 0x0C,
-    ESPNOW_MSG_NAK = 0x0D,
-} espnow_msg_type_t;
-
-typedef enum {
-    SENSOR_TYPE_TEMP_HUM = 1,
-    SENSOR_TYPE_CONTACT = 2,
-    SENSOR_TYPE_MOTION = 3,
-    SENSOR_TYPE_GAS = 4,
-    SENSOR_TYPE_RAIN = 5,
-    SENSOR_TYPE_TANK = 6,
-    SENSOR_TYPE_DHT_GAS = 7,
-    SENSOR_TYPE_ONOFF = 8,
-    SENSOR_TYPE_LIGHT = 9,
-    SENSOR_TYPE_REPEATER = 10,
-    SENSOR_TYPE_DHT_RELE = 11,
-} sensor_type_t;
+/* Unified message types in shared/src/msg_type.h */
 
 typedef enum {
     HW_CHIP_UNKNOWN = 0xFF,
-    HW_CHIP_ESP8266 = 0,
-    HW_CHIP_ESP32 = 1,
+    HW_CHIP_ESP_1 = 0,   /* was HW_CHIP_ESP8266 */
+    HW_CHIP_ESP_2 = 1,   /* was HW_CHIP_ESP32 */
 } chip_type_t;
 
 typedef enum {
@@ -111,8 +90,9 @@ typedef struct __attribute__((packed)) {
 } payload_tank_t;
 
 typedef struct __attribute__((packed)) {
-    uint8_t state;
-} payload_onoff_t;
+    uint16_t raw_adc;
+    uint8_t moisture_pct;
+} payload_soil_moisture_t;
 
 typedef struct __attribute__((packed)) {
     uint8_t msg_type;
@@ -136,6 +116,7 @@ typedef struct __attribute__((packed)) {
     uint16_t sequence;
     uint8_t target_mac[6];
     uint8_t command;
+    char target_device_id[32];
 } espnow_command_t;
 
 typedef struct __attribute__((packed)) {
@@ -154,7 +135,7 @@ typedef struct __attribute__((packed)) {
 /* Pair request sent by clients (ESP-NOW broadcast, msg_type=0x02).
    Layout mantido compatível com os clients em produção (campos gravados na
    ordem: msg_type, sequence, sensor_mac, sensor_type, firmware_version,
-   device_name). client_chip é enviado como 0 por clients legados (ESP8266).
+   device_name). client_chip é enviado como HW_CHIP_ESP_1 por clients legados.
    Regra 17: qualquer mudança nesta struct deve valer para gateway + clients. */
 typedef struct __attribute__((packed)) {
     uint8_t  msg_type;
@@ -198,41 +179,33 @@ typedef struct __attribute__((packed)) {
 #define PAIR_STATUS_FULL 1
 #define PAIR_STATUS_DENIED 2
 
-static inline void mac_to_str(const uint8_t *mac, char *buf, size_t len) {
-    snprintf(buf, len, "%02X-%02X-%02X-%02X-%02X-%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-}
-
-static inline bool mac_equal(const uint8_t *a, const uint8_t *b) {
-    return memcmp(a, b, 6) == 0;
-}
-
-static inline void mac_copy(uint8_t *dst, const uint8_t *src) {
-    memcpy(dst, src, 6);
-}
+// mac_to_str, mac_equal, mac_copy now live in common_util.h
 
 // Envia via ESP-NOW e registra no console se foi BROADCAST ou UNICAST,
 // incluindo o MAC de destino. Substitui chamadas diretas a esp_now_send()
 // para centralizar o log (regra 17). Retorna true se enviado com sucesso.
 // Usa Serial.printf para nao acoplar ao ConsoleOutput (evita conflito com
 // console.h local dos clients); o telnet espelha Serial.
+#ifndef LORA_DEVICE
 static inline bool espnow_send_wrapper(const uint8_t *dst, const uint8_t *data,
                                        size_t len, const char *tag) {
-    bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
-                     dst[3] == 0xFF && dst[4] == 0xFF && dst[5] == 0xFF);
-    char mac_str[18];
-    if (is_bcast) {
-        strcpy(mac_str, "FF:FF:FF:FF:FF:FF");
-    } else {
-        mac_to_str(dst, mac_str, sizeof(mac_str));
-    }
     int ret = esp_now_send((uint8_t *)dst, (uint8_t *)data, len);
-    Serial.printf("[%s] ESP-NOW send %s -> %s: %s (%d bytes)\n",
-                   tag ? tag : "espnow",
-                   is_bcast ? "BROADCAST" : "UNICAST",
-                   mac_str,
-                   ret == 0 ? "ok" : "FAIL",
-                   (int)len);
+    if (ret != 0) {
+        bool is_bcast = (dst[0] == 0xFF && dst[1] == 0xFF && dst[2] == 0xFF &&
+                         dst[3] == 0xFF && dst[4] == 0xFF && dst[5] == 0xFF);
+        char mac_str[18];
+        if (is_bcast) {
+            strcpy(mac_str, "FF:FF:FF:FF:FF:FF");
+        } else {
+            mac_to_str(dst, mac_str, sizeof(mac_str));
+        }
+        Serial.printf("[%s] ESP-NOW FAIL %s -> %s (%d bytes)\n",
+                       tag ? tag : "espnow",
+                       is_bcast ? "BROADCAST" : "UNICAST",
+                       mac_str, (int)len);
+    }
     return ret == 0;
 }
+#endif // !LORA_DEVICE
 
 #endif

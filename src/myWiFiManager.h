@@ -24,5 +24,9 @@ void mywifi_loop();
 wifi_state_t mywifi_state();
 const char* mywifi_ssid();
 void mywifi_espnow_mac(uint8_t *out);
+bool mywifi_try_next_bssid();
+int mywifi_channel();
+int mywifi_configured_channel();
+void mywifi_save_channel(uint8_t ch);
 
 #endif

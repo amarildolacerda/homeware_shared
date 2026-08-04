@@ -19,6 +19,7 @@ public:
     size_t write(const uint8_t *buffer, size_t size) override;
     int telnet_available();
     int telnet_read();
+    bool telnet_connected();
     using Print::printf;
     void set_banner(const char *s) { strncpy(m_banner, s, sizeof(m_banner) - 1); m_banner[sizeof(m_banner)-1] = 0; }
 private:
