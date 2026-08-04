@@ -80,18 +80,37 @@ bool mywifi_begin(bool force_portal) {
 #if defined(ARDUINO_ARCH_ESP32)
     WiFi.mode(WIFI_STA);
     apply_static_ip();
+    /* Step 1: Try saved credentials */
     if (!force_portal && have_creds) {
+        Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
         WiFi.begin(saved_ssid, saved_pass);
         s_state = WIFI_STATE_CONNECTING;
         s_last_attempt = millis();
         return true;
     }
+#ifdef STATIC_WIFI
+    /* Step 2: Try STATIC_WIFI */
+    if (strlen(WIFI_SSID) > 0) {
+        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
+        strncpy(s_ssid, WIFI_SSID, sizeof(s_ssid) - 1);
+        s_ssid[sizeof(s_ssid) - 1] = '\0';
+        strncpy(s_pass_saved, WIFI_PASS, sizeof(s_pass_saved) - 1);
+        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
+        WiFi.begin(WIFI_SSID, WIFI_PASS);
+        s_state = WIFI_STATE_CONNECTING;
+        s_last_attempt = millis();
+        return true;
+    }
+#endif
+    /* Step 3: AP mode */
     s_state = WIFI_STATE_PORTAL;
     s_portal_active = true;
     s_portal_start = millis();
     return false;
 #else
+    /* Step 1: Try saved credentials */
     if (!force_portal && have_creds) {
+        Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
         WiFi.mode(WIFI_STA);
         apply_static_ip();
         WiFi.begin(saved_ssid, saved_pass);
@@ -99,6 +118,23 @@ bool mywifi_begin(bool force_portal) {
         s_last_attempt = millis();
         return true;
     }
+#ifdef STATIC_WIFI
+    /* Step 2: Try STATIC_WIFI */
+    if (strlen(WIFI_SSID) > 0) {
+        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
+        WiFi.mode(WIFI_STA);
+        apply_static_ip();
+        strncpy(s_ssid, WIFI_SSID, sizeof(s_ssid) - 1);
+        s_ssid[sizeof(s_ssid) - 1] = '\0';
+        strncpy(s_pass_saved, WIFI_PASS, sizeof(s_pass_saved) - 1);
+        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
+        WiFi.begin(WIFI_SSID, WIFI_PASS);
+        s_state = WIFI_STATE_CONNECTING;
+        s_last_attempt = millis();
+        return true;
+    }
+#endif
+    /* Step 3: AP mode (blocking portal for ESP8266) */
     s_state = WIFI_STATE_PORTAL;
     s_portal_active = true;
     s_portal_start = millis();
@@ -163,11 +199,21 @@ void mywifi_loop() {
         last_attempt = millis();
         WiFi.mode(WIFI_STA);
         apply_static_ip();
+        /* Step 1: Try saved EEPROM creds */
         char ssid[EEPROM_WIFI_SSID_SIZE];
         char pass[EEPROM_WIFI_PASS_SIZE];
         if (sh_creds_load(ssid, pass)) {
+            Serial.printf("[wifi] Reconnecting (step 1 - EEPROM): %s\n", ssid);
             WiFi.begin(ssid, pass);
-        } else {
+        }
+#ifdef STATIC_WIFI
+        /* Step 2: Try STATIC_WIFI */
+        else if (strlen(WIFI_SSID) > 0) {
+            Serial.printf("[wifi] Reconnecting (step 2 - STATIC_WIFI): %s\n", WIFI_SSID);
+            WiFi.begin(WIFI_SSID, WIFI_PASS);
+        }
+#endif
+        else {
             WiFi.begin();
         }
         s_reconnect_active = true;
