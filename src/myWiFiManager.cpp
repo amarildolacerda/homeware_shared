@@ -11,6 +11,8 @@ static bool s_portal_active = false;
 
 static bool s_reconnect_active = false;
 static unsigned long s_reconnect_deadline = 0;
+static int s_reconnect_failures = 0;
+static bool s_initial_connect_done = false;
 #if !defined(ARDUINO_ARCH_ESP32)
   static WiFiManager s_wm;
 #endif
@@ -177,19 +179,27 @@ void mywifi_loop() {
                 }
             }
         }
-        if (s_state != WIFI_STATE_CONNECTED) s_state = WIFI_STATE_CONNECTED;
+        if (s_state != WIFI_STATE_CONNECTED) {
+            s_state = WIFI_STATE_CONNECTED;
+            s_reconnect_failures = 0;  // Reset failure counter on successful connection
+            s_initial_connect_done = true;
+        }
         s_portal_active = false;
         return;
     }
 
     if (s_state == WIFI_STATE_PORTAL) {
-        if (s_portal_active && millis() - s_portal_start > 300000)
+        if (s_portal_active && millis() - s_portal_start > 300000) {
+            /* Timeout do portal: desliga o AP e retoma a reconexão. Sem isso o
+               device ficaria preso em PORTAL para sempre após falha de config. */
             s_portal_active = false;
+            s_state = WIFI_STATE_DISCONNECTED;
 #if !defined(ARDUINO_ARCH_ESP32)
-        #if defined(WIFIMANAGER_VERSION)
-        s_wm.process();
-        #endif
+            WiFi.softAPdisconnect(true);
+            WiFi.mode(WIFI_STA);
 #endif
+            Serial.printf("[wifi] Portal timeout, resuming reconnection\n");
+        }
         return;
     }
 
@@ -220,6 +230,26 @@ void mywifi_loop() {
         s_reconnect_deadline = millis() + 15000;
     } else if (millis() >= s_reconnect_deadline) {
         s_reconnect_active = false;
+        s_reconnect_failures++;
+        Serial.printf("[wifi] Reconnection attempt failed (%d)\n", s_reconnect_failures);
+        
+        /* After 3 failed attempts, fall back to AP portal mode for reconfiguration.
+           Nao-bloqueante: so inicia o softAP e seta o estado; a pagina de config
+           e servida pelo proprio device (ex: nodes/lamp serve PAGE_WIFI_CONFIG
+           na porta 80 quando WIFI_STATE_PORTAL). NUNCA chamar o portal do
+           WiFiManager aqui: ele abre servidor HTTP na porta 80 (conflita com o
+           dashboard) e salva creds no FS proprio dele, que o sh_creds_load nao le. */
+        if (s_reconnect_failures >= 3 && s_initial_connect_done) {
+            Serial.printf("[wifi] Max reconnection failures reached, starting AP portal\n");
+            s_state = WIFI_STATE_PORTAL;
+            s_portal_active = true;
+            s_portal_start = millis();
+            s_reconnect_failures = 0;
+#if !defined(ARDUINO_ARCH_ESP32)
+            WiFi.mode(WIFI_AP_STA);
+            WiFi.softAP(WIFI_CONFIG_PORTAL_SSID, WIFI_CONFIG_PORTAL_PASS);
+#endif
+        }
     }
 }
 
@@ -235,6 +265,23 @@ void mywifi_save_channel(uint8_t ch) {
     EEPROM.commit();
     EEPROM.end();
     Serial.printf("[wifi] Channel saved: %d\n", ch);
+}
+
+void mywifi_save_creds(const char *ssid, const char *pass) {
+    EEPROM.begin(EEPROM_SIZE);
+    int i = 0;
+    for (; i < EEPROM_WIFI_SSID_SIZE - 1 && ssid[i]; i++)
+        EEPROM.write(EEPROM_WIFI_SSID_OFFSET + i, ssid[i]);
+    EEPROM.write(EEPROM_WIFI_SSID_OFFSET + i, 0);
+    i = 0;
+    for (; i < EEPROM_WIFI_PASS_SIZE - 1 && pass[i]; i++)
+        EEPROM.write(EEPROM_WIFI_PASS_OFFSET + i, pass[i]);
+    EEPROM.write(EEPROM_WIFI_PASS_OFFSET + i, 0);
+    EEPROM.commit();
+    EEPROM.end();
+    if (ssid[0]) strncpy(s_ssid, ssid, sizeof(s_ssid) - 1);
+    if (pass[0]) strncpy(s_pass_saved, pass, sizeof(s_pass_saved) - 1);
+    Serial.printf("[wifi] Credentials saved: %s\n", ssid);
 }
 
 bool mywifi_portal(char *name_buf, size_t name_size, void (*on_name)(const char*)) {
