@@ -5,6 +5,7 @@
 #include "node_protocol.h"
 #include "tcp_protocol.h"
 #include "sensor_type.h"
+#include "common_watchdog.h"
 #include <stdint.h>
 #include <WiFiUdp.h>
 
@@ -69,7 +70,7 @@ private:
     unsigned long m_rx_count;
 
     unsigned long m_last_hub_contact_ms;
-    unsigned long m_last_wifi_ok_ms;
+    StableWatchdog m_wifi_wd;
 
     WiFiUDP m_udp;
 

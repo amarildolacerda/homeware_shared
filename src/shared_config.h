@@ -3,6 +3,12 @@
 
 #include <Arduino.h>
 
+// Watchdog estavel: tempo saudavel continuo para (re)armar o timer de restart
+// (ver common_watchdog.h). Devices podem sobrescrever no proprio config.h.
+#ifndef WATCHDOG_STABLE_RESET_MS
+#define WATCHDOG_STABLE_RESET_MS 60000
+#endif
+
 // Configuracao minima compartilhada entre gateway e clients para o
 // myWiFiManager e espnow_protocol. Mantenha IGUAL em todos os devices.
 

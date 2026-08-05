@@ -37,7 +37,7 @@ TcpNodeProtocol::TcpNodeProtocol()
     , m_last_heartbeat_ms(0), m_last_discover_ms(0), m_last_register_ms(0)
     , m_last_command_check_ms(0)
     , m_tx_count(0), m_rx_count(0)
-    , m_last_hub_contact_ms(0), m_last_wifi_ok_ms(0)
+    , m_last_hub_contact_ms(0)
 {
     memset(m_mac, 0, sizeof(m_mac));
     memset(m_gateway_mac, 0, sizeof(m_gateway_mac));
@@ -76,7 +76,10 @@ void TcpNodeProtocol::load_gateway_mac() {
 void TcpNodeProtocol::begin() {
     m_udp.begin(TCP_UDP_PORT);
     m_last_discover_ms = 0; // trigger immediate discover
-    m_last_wifi_ok_ms = millis(); // start WiFi watchdog from boot
+    // WiFi watchdog a prova de flip-flop: arma desde o boot (node TCP sem WiFi
+    // nunca conectado tambem reinicia), mas so re-arma apos 60s continuos de
+    // WiFi conectado — reconexoes breves nao desarmam o watchdog.
+    m_wifi_wd.init(WATCHDOG_STABLE_RESET_MS, TCP_WIFI_WATCHDOG_MS, true);
     console.printf("[%s] Initialized (TCP mode)\n", TAG);
 }
 
@@ -188,11 +191,10 @@ void TcpNodeProtocol::loop() {
     unsigned long now = millis();
 
     // ── Watchdogs ──
-    // WiFi: TCP node without WiFi is dead — restart
-    if (WiFi.status() == WL_CONNECTED) {
-        m_last_wifi_ok_ms = now;
-    } else if (m_last_wifi_ok_ms > 0 && (now - m_last_wifi_ok_ms) > TCP_WIFI_WATCHDOG_MS) {
-        console.printf("[%s] WiFi offline for %lus, restarting...\n", TAG, (now - m_last_wifi_ok_ms) / 1000);
+    // WiFi: TCP node without WiFi is dead — restart (flip-flop proof:
+    // reconexoes breves < WATCHDOG_STABLE_RESET_MS nao estendem o timer)
+    if (m_wifi_wd.check(WiFi.status() == WL_CONNECTED, now)) {
+        console.printf("[%s] WiFi offline for too long, restarting...\n", TAG);
         delay(100);
         ESP.restart();
     }
