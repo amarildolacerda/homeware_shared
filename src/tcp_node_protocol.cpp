@@ -24,7 +24,7 @@
 #define REREGISTER_INTERVAL_MS 120000
 
 // Watchdog timeouts (TCP nodes depend on hub + WiFi)
-#define TCP_WIFI_WATCHDOG_MS   60000   // 1 min without WiFi → restart
+#define TCP_WIFI_WATCHDOG_MS   120000   // 2 min without WiFi → restart
 #define TCP_HUB_WATCHDOG_MS   180000   // 3 min without hub → restart
 
 static const char* TAG = "tcp-node";
@@ -239,8 +239,9 @@ void TcpNodeProtocol::loop() {
             doc["device_id"] = m_device_id;
             String payload;
             serializeJson(doc, payload);
-            send_to_hub("/node/heartbeat", payload);
-            m_last_hub_contact_ms = millis();
+            if (send_to_hub("/node/heartbeat", payload)) {
+                m_last_hub_contact_ms = millis();
+            }
         }
     }
 
