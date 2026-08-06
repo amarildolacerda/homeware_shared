@@ -9,6 +9,7 @@
 #include "espnow_protocol.h"
 #include "shared_config.h"
 #include "common_console.h"
+#include "platform.h"
 #include <Arduino.h>
 #ifdef ESP32
   #include <HTTPClient.h>
@@ -144,6 +145,7 @@ bool TcpNodeProtocol::register_with_hub() {
     char mac_str[18];
     mac_to_str(m_mac, mac_str, sizeof(mac_str));
     doc["mac"] = mac_str;
+    doc["client_chip"] = hw_chip_type();
     String payload;
     serializeJson(doc, payload);
     if (send_to_hub("/node/register", payload)) {

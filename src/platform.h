@@ -15,6 +15,9 @@
       return (uint32_t)(ESP.getEfuseMac() & 0xFFFFFFFF);
   }
 
+  // chip_type_t (espnow_protocol.h): HW_CHIP_ESP_2 = ESP32
+  static inline uint8_t hw_chip_type() { return 1; }
+
   static inline bool espnow_add_peer_wrapper(const uint8_t *mac, int channel) {
       esp_now_del_peer((uint8_t*)mac);
       esp_now_peer_info_t peer = {};
@@ -37,6 +40,9 @@
   static inline uint32_t chip_id() {
       return ESP.getChipId();
   }
+
+  // chip_type_t (espnow_protocol.h): HW_CHIP_ESP_1 = ESP8266
+  static inline uint8_t hw_chip_type() { return 0; }
 
   static inline bool espnow_add_peer_wrapper(const uint8_t *mac, int channel) {
       esp_now_del_peer((uint8_t*)mac);
