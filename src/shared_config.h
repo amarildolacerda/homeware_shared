@@ -46,12 +46,12 @@
 #define ESP_NOW_CHANNEL 1
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.2.8"
+#define FW_VERSION "v1.2.14"
 #endif
 
 // TCP node defaults
 #ifndef HUB_IP_DEFAULT
-#define HUB_IP_DEFAULT "192.168.1.100"
+#define HUB_IP_DEFAULT "192.168.1.14"
 #endif
 #ifndef HUB_PORT
 #define HUB_PORT 80

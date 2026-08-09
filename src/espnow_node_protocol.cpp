@@ -2,6 +2,11 @@
 #include "espnow_protocol.h"
 #include "common_espnow.h"
 #include <Arduino.h>
+#ifdef ESP32
+  #include <WiFi.h>
+#else
+  #include <ESP8266WiFi.h>
+#endif
 #include <string.h>
 
 static EspnowNodeProtocol* s_self = nullptr;
@@ -200,6 +205,11 @@ void EspnowNodeProtocol::send_sensor_data() {
     hdr->battery_pct = 100;
     hdr->rssi = 0;
     hdr->payload_len = payload_len;
+    // Fill node WiFi IP
+    {
+        IPAddress ip = WiFi.localIP();
+        hdr->ip[0] = ip[0]; hdr->ip[1] = ip[1]; hdr->ip[2] = ip[2]; hdr->ip[3] = ip[3];
+    }
     if (payload_len > 0) memcpy(hdr->payload, payload, payload_len);
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     espnow_send_wrapper(bc, buf, ESPNOW_HEADER_FIXED_SIZE + payload_len, "node");
@@ -217,6 +227,11 @@ void EspnowNodeProtocol::send_heartbeat() {
     hdr->battery_pct = 100;
     hdr->rssi = 0;
     hdr->payload_len = 0;
+    // Fill node WiFi IP
+    {
+        IPAddress ip = WiFi.localIP();
+        hdr->ip[0] = ip[0]; hdr->ip[1] = ip[1]; hdr->ip[2] = ip[2]; hdr->ip[3] = ip[3];
+    }
     uint8_t bc[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
     espnow_send_wrapper(bc, buf, ESPNOW_HEADER_FIXED_SIZE, "node");
 }

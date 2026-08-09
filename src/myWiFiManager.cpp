@@ -79,37 +79,6 @@ bool mywifi_begin(bool force_portal) {
     if (saved_ssid[0]) strncpy(s_ssid, saved_ssid, sizeof(s_ssid) - 1);
     if (saved_pass[0]) strncpy(s_pass_saved, saved_pass, sizeof(s_pass_saved) - 1);
 
-#if defined(ARDUINO_ARCH_ESP32)
-    WiFi.mode(WIFI_STA);
-    apply_static_ip();
-    /* Step 1: Try saved credentials */
-    if (!force_portal && have_creds) {
-        Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
-        WiFi.begin(saved_ssid, saved_pass);
-        s_state = WIFI_STATE_CONNECTING;
-        s_last_attempt = millis();
-        return true;
-    }
-#ifdef STATIC_WIFI
-    /* Step 2: Try STATIC_WIFI */
-    if (strlen(WIFI_SSID) > 0) {
-        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
-        strncpy(s_ssid, WIFI_SSID, sizeof(s_ssid) - 1);
-        s_ssid[sizeof(s_ssid) - 1] = '\0';
-        strncpy(s_pass_saved, WIFI_PASS, sizeof(s_pass_saved) - 1);
-        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
-        WiFi.begin(WIFI_SSID, WIFI_PASS);
-        s_state = WIFI_STATE_CONNECTING;
-        s_last_attempt = millis();
-        return true;
-    }
-#endif
-    /* Step 3: AP mode */
-    s_state = WIFI_STATE_PORTAL;
-    s_portal_active = true;
-    s_portal_start = millis();
-    return false;
-#else
     /* Step 1: Try saved credentials */
     if (!force_portal && have_creds) {
         Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
@@ -120,7 +89,8 @@ bool mywifi_begin(bool force_portal) {
         s_last_attempt = millis();
         return true;
     }
-#ifdef STATIC_WIFI
+
+#ifdef WIFI_SSID
     /* Step 2: Try STATIC_WIFI */
     if (strlen(WIFI_SSID) > 0) {
         Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
@@ -136,14 +106,36 @@ bool mywifi_begin(bool force_portal) {
         return true;
     }
 #endif
+
+#ifdef WIFI2_SSID
+    /* Step 2: Try STATIC_WIFI */
+    if (strlen(WIFI2_SSID) > 0) {
+        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
+        WiFi.mode(WIFI_STA);
+        apply_static_ip();
+        strncpy(s_ssid, WIFI2_SSID, sizeof(s_ssid) - 1);
+        s_ssid[sizeof(s_ssid) - 1] = '\0';
+        strncpy(s_pass_saved, WIFI2_PASS, sizeof(s_pass_saved) - 1);
+        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
+        WiFi.begin(WIFI2_SSID, WIFI2_PASS);
+        s_state = WIFI_STATE_CONNECTING;
+        s_last_attempt = millis();
+        return true;
+    }
+#endif
+
     /* Step 3: AP mode (blocking portal for ESP8266) */
     s_state = WIFI_STATE_PORTAL;
     s_portal_active = true;
     s_portal_start = millis();
+#if !defined(ARDUINO_ARCH_ESP32)
     s_wm.setConfigPortalTimeout(300);
     s_wm.startConfigPortal(WIFI_CONFIG_PORTAL_SSID, WIFI_CONFIG_PORTAL_PASS);
-    return false;
 #endif
+    return false;
+
+return false;
+
 }
 
 void mywifi_loop() {
