@@ -4,6 +4,11 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include <string.h>
+#include "platform.h"
+
+// Device ID — centralizado ("agri_XXXXXX" a partir do chip_id).
+// Retorna ponteiro para buffer estático; válido até próxima chamada.
+const char* getDeviceId();
 
 // MAC utilities — used by ESP-NOW, TCP, and any code that deals with MACs.
 static inline void mac_to_str(const uint8_t *mac, char *buf, size_t len) {

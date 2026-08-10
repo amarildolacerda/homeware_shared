@@ -34,7 +34,7 @@
   #include <WiFiClient.h>
   #include <espnow.h>
   #include <Updater.h>
-  #define PLATFORM_PREFIX "agri"
+  #define PLATFORM_PREFIX "Ag"
   typedef ESP8266WebServer MyWebServer;
 
   static inline uint32_t chip_id() {
