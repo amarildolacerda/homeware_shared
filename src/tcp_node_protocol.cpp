@@ -31,9 +31,14 @@
 static const char* TAG = "tcp-node";
 
 /* IP atribuido? (DHCP completo). 0.0.0.0 = sem IP ainda. */
+//static inline bool wifi_has_ip() {
+//    return (uint32_t)WiFi.localIP() != 0;
+//}
+
 static inline bool wifi_has_ip() {
-    return (uint32_t)WiFi.localIP() != 0;
+    return WiFi.localIP() != INADDR_NONE;
 }
+
 
 TcpNodeProtocol::TcpNodeProtocol()
     : m_slot(0), m_registered(false), m_hub_found(false), m_retry_count(0)
