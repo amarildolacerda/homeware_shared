@@ -86,7 +86,7 @@ void TcpNodeProtocol::begin() {
 
 bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
     if (WiFi.status() != WL_CONNECTED) {
-         console.printf("WIFI Desconectado");
+        console.printf("[%s] WIFI Desconectado, aborting POST %s\n", TAG, endpoint);
         return false;
     }
     WiFiClient client;
@@ -100,10 +100,14 @@ bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
             m_tx_count++;
             if (httpCode == 200) m_rx_count++;
             http.end();
+            console.printf("[%s] POST %s -> %d\n", TAG, endpoint, httpCode);
             return httpCode == 200;
         }
         http.end();
+        console.printf("[%s] POST %s failed (httpCode=%d)\n", TAG, endpoint, httpCode);
+        return false;
     }
+    console.printf("[%s] POST %s failed (http.begin)\n", TAG, endpoint);
     return false;
 }
 
