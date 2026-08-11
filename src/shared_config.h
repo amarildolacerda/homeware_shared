@@ -46,7 +46,7 @@
 #define ESP_NOW_CHANNEL 1
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.2.17"
+#define FW_VERSION "v1.2.19"
 #endif
 
 // TCP node defaults
