@@ -30,6 +30,11 @@
 
 static const char* TAG = "tcp-node";
 
+/* IP atribuido? (DHCP completo). 0.0.0.0 = sem IP ainda. */
+static inline bool wifi_has_ip() {
+    return (uint32_t)WiFi.localIP() != 0;
+}
+
 TcpNodeProtocol::TcpNodeProtocol()
     : m_slot(0), m_registered(false), m_hub_found(false), m_retry_count(0)
     , m_hub_port(TCP_HTTP_PORT)
@@ -85,8 +90,11 @@ void TcpNodeProtocol::begin() {
 }
 
 bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
-    if (WiFi.status() != WL_CONNECTED) {
-        console.printf("[%s] WIFI Desconectado, aborting POST %s\n", TAG, endpoint);
+    /* Wi-Fi associado (WL_CONNECTED) mas sem IP ainda (DHCP em andamento): nao
+       ha rota para o hub — aborta em vez de tentar POST que falha com -1. */
+    if (WiFi.status() != WL_CONNECTED || !wifi_has_ip()) {
+        console.printf("[%s] WIFI %s, aborting POST %s\n", TAG,
+                       !wifi_has_ip() ? "sem IP (DHCP)" : "Desconectado", endpoint);
         return false;
     }
     WiFiClient client;
@@ -164,7 +172,7 @@ bool TcpNodeProtocol::register_with_hub() {
 }
 
 void TcpNodeProtocol::check_commands() {
-    if (!m_registered || WiFi.status() != WL_CONNECTED) return;
+    if (!m_registered || WiFi.status() != WL_CONNECTED || !wifi_has_ip()) return;
     unsigned long now = millis();
     if (now - m_last_command_check_ms < 1000) return;
     m_last_command_check_ms = now;
@@ -258,9 +266,9 @@ void TcpNodeProtocol::loop() {
 }
 
 void TcpNodeProtocol::publish_state() {
-    if (!m_registered || WiFi.status() != WL_CONNECTED) 
+    if (!m_registered || WiFi.status() != WL_CONNECTED || !wifi_has_ip())
     {
-        console.printf("WIFI %s", WiFi.status() != WL_CONNECTED ? "Desconectado" : "Nao registrado");
+        console.printf("WIFI %s", !wifi_has_ip() ? "sem IP (DHCP)" : "Desconectado");
         return;
     }   
 
