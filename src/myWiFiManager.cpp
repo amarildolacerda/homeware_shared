@@ -32,6 +32,8 @@ static bool sh_creds_load(char *ssid, char *pass) {
         pass[i] = EEPROM.read(EEPROM_WIFI_PASS_OFFSET + i);
     pass[EEPROM_WIFI_PASS_SIZE - 1] = '\0';
     s_wifi_channel = EEPROM.read(EEPROM_WIFI_CHANNEL_OFFSET);
+    /* EEPROM nao inicializada = 0xFF (255). Validar: 0 = auto, 1-13 = forcado. */
+    if (s_wifi_channel > 13) s_wifi_channel = 0;
     EEPROM.end();
     return valid && strlen(ssid) > 0;
 }
