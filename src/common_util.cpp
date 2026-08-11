@@ -1,5 +1,21 @@
 #include "common_util.h"
 
+const char* getDeviceId() {
+    static char s_device_id[32] = {0};
+    if (s_device_id[0] == '\0') {
+        #ifdef ESPNOW_ENABLED
+          snprintf(s_device_id, sizeof(s_device_id), "%s%s_%06x", PLATFORM_PREFIX,"EN", chip_id());
+        #elif defined(LORA_ENABLED)
+          snprintf(s_device_id, sizeof(s_device_id), "%s%s_%06x", PLATFORM_PREFIX,"LR", chip_id());
+        #elif defined(TCP_ENABLED)  
+          snprintf(s_device_id, sizeof(s_device_id), "%s%s_%06x", PLATFORM_PREFIX,"TP", chip_id());
+        #else
+        snprintf(s_device_id, sizeof(s_device_id), "%s_%06x", PLATFORM_PREFIX, chip_id());
+        #endif
+    }
+    return s_device_id;
+}
+
 void uptime_to_str(unsigned long ms, char *buf, size_t len) {
     unsigned long s = ms / 1000;
     unsigned long d = s / 86400;

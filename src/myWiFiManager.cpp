@@ -11,6 +11,8 @@ static bool s_portal_active = false;
 
 static bool s_reconnect_active = false;
 static unsigned long s_reconnect_deadline = 0;
+static int s_reconnect_failures = 0;
+static int s_reconnect_stage = 0;
 #if !defined(ARDUINO_ARCH_ESP32)
   static WiFiManager s_wm;
 #endif
@@ -77,37 +79,6 @@ bool mywifi_begin(bool force_portal) {
     if (saved_ssid[0]) strncpy(s_ssid, saved_ssid, sizeof(s_ssid) - 1);
     if (saved_pass[0]) strncpy(s_pass_saved, saved_pass, sizeof(s_pass_saved) - 1);
 
-#if defined(ARDUINO_ARCH_ESP32)
-    WiFi.mode(WIFI_STA);
-    apply_static_ip();
-    /* Step 1: Try saved credentials */
-    if (!force_portal && have_creds) {
-        Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
-        WiFi.begin(saved_ssid, saved_pass);
-        s_state = WIFI_STATE_CONNECTING;
-        s_last_attempt = millis();
-        return true;
-    }
-#ifdef STATIC_WIFI
-    /* Step 2: Try STATIC_WIFI */
-    if (strlen(WIFI_SSID) > 0) {
-        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
-        strncpy(s_ssid, WIFI_SSID, sizeof(s_ssid) - 1);
-        s_ssid[sizeof(s_ssid) - 1] = '\0';
-        strncpy(s_pass_saved, WIFI_PASS, sizeof(s_pass_saved) - 1);
-        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
-        WiFi.begin(WIFI_SSID, WIFI_PASS);
-        s_state = WIFI_STATE_CONNECTING;
-        s_last_attempt = millis();
-        return true;
-    }
-#endif
-    /* Step 3: AP mode */
-    s_state = WIFI_STATE_PORTAL;
-    s_portal_active = true;
-    s_portal_start = millis();
-    return false;
-#else
     /* Step 1: Try saved credentials */
     if (!force_portal && have_creds) {
         Serial.printf("[wifi] Step 1: Connecting to saved: %s\n", saved_ssid);
@@ -118,7 +89,8 @@ bool mywifi_begin(bool force_portal) {
         s_last_attempt = millis();
         return true;
     }
-#ifdef STATIC_WIFI
+
+#ifdef WIFI_SSID
     /* Step 2: Try STATIC_WIFI */
     if (strlen(WIFI_SSID) > 0) {
         Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
@@ -134,18 +106,52 @@ bool mywifi_begin(bool force_portal) {
         return true;
     }
 #endif
+
+#ifdef WIFI2_SSID
+    /* Step 2: Try STATIC_WIFI */
+    if (strlen(WIFI2_SSID) > 0) {
+        Serial.printf("[wifi] Step 2: Trying STATIC_WIFI: %s\n", WIFI_SSID);
+        WiFi.mode(WIFI_STA);
+        apply_static_ip();
+        strncpy(s_ssid, WIFI2_SSID, sizeof(s_ssid) - 1);
+        s_ssid[sizeof(s_ssid) - 1] = '\0';
+        strncpy(s_pass_saved, WIFI2_PASS, sizeof(s_pass_saved) - 1);
+        s_pass_saved[sizeof(s_pass_saved) - 1] = '\0';
+        WiFi.begin(WIFI2_SSID, WIFI2_PASS);
+        s_state = WIFI_STATE_CONNECTING;
+        s_last_attempt = millis();
+        return true;
+    }
+#endif
+
     /* Step 3: AP mode (blocking portal for ESP8266) */
     s_state = WIFI_STATE_PORTAL;
     s_portal_active = true;
     s_portal_start = millis();
+#if !defined(ARDUINO_ARCH_ESP32)
     s_wm.setConfigPortalTimeout(300);
     s_wm.startConfigPortal(WIFI_CONFIG_PORTAL_SSID, WIFI_CONFIG_PORTAL_PASS);
-    return false;
 #endif
+    return false;
+
+return false;
+
 }
+
+/* Reconnect sequence stages:
+ *   0 = saved EEPROM creds
+ *   1 = WIFI_SSID (STATIC_WIFI)
+ *   2 = WIFI2_SSID (STATIC_WIFI)
+ *   3 = AP portal
+ */
+#define WIFI_RECONNECT_STAGE_EEPROM 0
+#define WIFI_RECONNECT_STAGE_WIFI   1
+#define WIFI_RECONNECT_STAGE_WIFI2  2
+#define WIFI_RECONNECT_STAGE_AP     3
 
 void mywifi_loop() {
     if (WiFi.status() == WL_CONNECTED) {
+#ifdef ESPNOW_ENABLED
         if (s_wifi_channel > 0) {
             /* After connection, verify channel matches configured. If not, the
                node likely connected to an extender on a different channel.
@@ -177,19 +183,28 @@ void mywifi_loop() {
                 }
             }
         }
-        if (s_state != WIFI_STATE_CONNECTED) s_state = WIFI_STATE_CONNECTED;
+#endif
+        if (s_state != WIFI_STATE_CONNECTED) {
+            s_state = WIFI_STATE_CONNECTED;
+            s_reconnect_failures = 0;  // Reset failure counter on successful connection
+            s_reconnect_stage = WIFI_RECONNECT_STAGE_EEPROM;  // restart sequence from saved creds
+        }
         s_portal_active = false;
         return;
     }
 
     if (s_state == WIFI_STATE_PORTAL) {
-        if (s_portal_active && millis() - s_portal_start > 300000)
+        if (s_portal_active && millis() - s_portal_start > 300000) {
+            /* Timeout do portal: desliga o AP e retoma a reconexão. Sem isso o
+               device ficaria preso em PORTAL para sempre após falha de config. */
             s_portal_active = false;
+            s_state = WIFI_STATE_DISCONNECTED;
 #if !defined(ARDUINO_ARCH_ESP32)
-        #if defined(WIFIMANAGER_VERSION)
-        s_wm.process();
-        #endif
+            WiFi.softAPdisconnect(true);
+            WiFi.mode(WIFI_STA);
 #endif
+            Serial.printf("[wifi] Portal timeout, resuming reconnection\n");
+        }
         return;
     }
 
@@ -199,27 +214,72 @@ void mywifi_loop() {
         last_attempt = millis();
         WiFi.mode(WIFI_STA);
         apply_static_ip();
-        /* Step 1: Try saved EEPROM creds */
-        char ssid[EEPROM_WIFI_SSID_SIZE];
-        char pass[EEPROM_WIFI_PASS_SIZE];
-        if (sh_creds_load(ssid, pass)) {
-            Serial.printf("[wifi] Reconnecting (step 1 - EEPROM): %s\n", ssid);
-            WiFi.begin(ssid, pass);
-        }
-#ifdef STATIC_WIFI
-        /* Step 2: Try STATIC_WIFI */
-        else if (strlen(WIFI_SSID) > 0) {
-            Serial.printf("[wifi] Reconnecting (step 2 - STATIC_WIFI): %s\n", WIFI_SSID);
-            WiFi.begin(WIFI_SSID, WIFI_PASS);
-        }
+        /* Advance through the sequence: EEPROM -> WIFI_SSID -> WIFI2_SSID.
+           Skip stages with no defined network. */
+        while (s_reconnect_stage < WIFI_RECONNECT_STAGE_AP) {
+            switch (s_reconnect_stage) {
+            case WIFI_RECONNECT_STAGE_EEPROM: {
+                char ssid[EEPROM_WIFI_SSID_SIZE];
+                char pass[EEPROM_WIFI_PASS_SIZE];
+                if (sh_creds_load(ssid, pass)) {
+                    Serial.printf("[wifi] Reconnecting (step 1 - EEPROM): %s\n", ssid);
+                    WiFi.begin(ssid, pass);
+                    s_reconnect_active = true;
+                    s_reconnect_deadline = millis() + 15000;
+                    return;
+                }
+                break;
+            }
+#ifdef WIFI_SSID
+            case WIFI_RECONNECT_STAGE_WIFI: {
+                if (strlen(WIFI_SSID) > 0) {
+                    Serial.printf("[wifi] Reconnecting (step 2 - STATIC_WIFI): %s\n", WIFI_SSID);
+                    WiFi.begin(WIFI_SSID, WIFI_PASS);
+                    s_reconnect_active = true;
+                    s_reconnect_deadline = millis() + 15000;
+                    return;
+                }
+                break;
+            }
 #endif
-        else {
-            WiFi.begin();
+#ifdef WIFI2_SSID
+            case WIFI_RECONNECT_STAGE_WIFI2: {
+                if (strlen(WIFI2_SSID) > 0) {
+                    Serial.printf("[wifi] Reconnecting (step 3 - STATIC_WIFI2): %s\n", WIFI2_SSID);
+                    WiFi.begin(WIFI2_SSID, WIFI2_PASS);
+                    s_reconnect_active = true;
+                    s_reconnect_deadline = millis() + 15000;
+                    return;
+                }
+                break;
+            }
+#endif
+            }
+            s_reconnect_stage++;
         }
-        s_reconnect_active = true;
-        s_reconnect_deadline = millis() + 15000;
+
+        /* All network stages failed or skipped: AP portal for reconfiguration.
+           Nao-bloqueante: so inicia o softAP e seta o estado; a pagina de config
+           e servida pelo proprio device (ex: nodes/lamp serve PAGE_WIFI_CONFIG
+           na porta 80 quando WIFI_STATE_PORTAL). NUNCA chamar o portal do
+           WiFiManager aqui: ele abre servidor HTTP na porta 80 (conflita com o
+           dashboard) e salva creds no FS proprio dele, que o sh_creds_load nao le. */
+        Serial.printf("[wifi] All networks failed, starting AP portal\n");
+        s_state = WIFI_STATE_PORTAL;
+        s_portal_active = true;
+        s_portal_start = millis();
+        s_reconnect_failures = 0;
+        s_reconnect_stage = WIFI_RECONNECT_STAGE_EEPROM;
+#if !defined(ARDUINO_ARCH_ESP32)
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.softAP(WIFI_CONFIG_PORTAL_SSID, WIFI_CONFIG_PORTAL_PASS);
+#endif
+        return;
     } else if (millis() >= s_reconnect_deadline) {
         s_reconnect_active = false;
+        s_reconnect_failures++;
+        Serial.printf("[wifi] Reconnection attempt failed (%d)\n", s_reconnect_failures);
+        s_reconnect_stage++; /* advance to next network in the sequence */
     }
 }
 
@@ -235,6 +295,23 @@ void mywifi_save_channel(uint8_t ch) {
     EEPROM.commit();
     EEPROM.end();
     Serial.printf("[wifi] Channel saved: %d\n", ch);
+}
+
+void mywifi_save_creds(const char *ssid, const char *pass) {
+    EEPROM.begin(EEPROM_SIZE);
+    int i = 0;
+    for (; i < EEPROM_WIFI_SSID_SIZE - 1 && ssid[i]; i++)
+        EEPROM.write(EEPROM_WIFI_SSID_OFFSET + i, ssid[i]);
+    EEPROM.write(EEPROM_WIFI_SSID_OFFSET + i, 0);
+    i = 0;
+    for (; i < EEPROM_WIFI_PASS_SIZE - 1 && pass[i]; i++)
+        EEPROM.write(EEPROM_WIFI_PASS_OFFSET + i, pass[i]);
+    EEPROM.write(EEPROM_WIFI_PASS_OFFSET + i, 0);
+    EEPROM.commit();
+    EEPROM.end();
+    if (ssid[0]) strncpy(s_ssid, ssid, sizeof(s_ssid) - 1);
+    if (pass[0]) strncpy(s_pass_saved, pass, sizeof(s_pass_saved) - 1);
+    Serial.printf("[wifi] Credentials saved: %s\n", ssid);
 }
 
 bool mywifi_portal(char *name_buf, size_t name_size, void (*on_name)(const char*)) {

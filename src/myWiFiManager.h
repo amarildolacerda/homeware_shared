@@ -28,5 +28,6 @@ bool mywifi_try_next_bssid();
 int mywifi_channel();
 int mywifi_configured_channel();
 void mywifi_save_channel(uint8_t ch);
+void mywifi_save_creds(const char *ssid, const char *pass);
 
 #endif

@@ -9,6 +9,7 @@
 #include "espnow_protocol.h"
 #include "shared_config.h"
 #include "common_console.h"
+#include "platform.h"
 #include <Arduino.h>
 #ifdef ESP32
   #include <HTTPClient.h>
@@ -23,6 +24,10 @@
 #define DISCOVER_INTERVAL_MS 10000
 #define REREGISTER_INTERVAL_MS 120000
 
+// Watchdog timeouts (TCP nodes depend on hub + WiFi)
+#define TCP_WIFI_WATCHDOG_MS   120000   // 2 min without WiFi → restart
+#define TCP_HUB_WATCHDOG_MS   180000   // 3 min without hub → restart
+
 static const char* TAG = "tcp-node";
 
 TcpNodeProtocol::TcpNodeProtocol()
@@ -33,6 +38,7 @@ TcpNodeProtocol::TcpNodeProtocol()
     , m_last_heartbeat_ms(0), m_last_discover_ms(0), m_last_register_ms(0)
     , m_last_command_check_ms(0)
     , m_tx_count(0), m_rx_count(0)
+    , m_last_hub_contact_ms(0)
 {
     memset(m_mac, 0, sizeof(m_mac));
     memset(m_gateway_mac, 0, sizeof(m_gateway_mac));
@@ -71,12 +77,16 @@ void TcpNodeProtocol::load_gateway_mac() {
 void TcpNodeProtocol::begin() {
     m_udp.begin(TCP_UDP_PORT);
     m_last_discover_ms = 0; // trigger immediate discover
+    // WiFi watchdog a prova de flip-flop: arma desde o boot (node TCP sem WiFi
+    // nunca conectado tambem reinicia), mas so re-arma apos 60s continuos de
+    // WiFi conectado — reconexoes breves nao desarmam o watchdog.
+    m_wifi_wd.init(WATCHDOG_STABLE_RESET_MS, TCP_WIFI_WATCHDOG_MS, true);
     console.printf("[%s] Initialized (TCP mode)\n", TAG);
 }
 
 bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
     if (WiFi.status() != WL_CONNECTED) {
-         console.printf("WIFI Desconectado");
+        console.printf("[%s] WIFI Desconectado, aborting POST %s\n", TAG, endpoint);
         return false;
     }
     WiFiClient client;
@@ -90,10 +100,14 @@ bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
             m_tx_count++;
             if (httpCode == 200) m_rx_count++;
             http.end();
+            console.printf("[%s] POST %s -> %d\n", TAG, endpoint, httpCode);
             return httpCode == 200;
         }
         http.end();
+        console.printf("[%s] POST %s failed (httpCode=%d)\n", TAG, endpoint, httpCode);
+        return false;
     }
+    console.printf("[%s] POST %s failed (http.begin)\n", TAG, endpoint);
     return false;
 }
 
@@ -132,11 +146,16 @@ bool TcpNodeProtocol::register_with_hub() {
     doc["sensor_type"] = (int)(callbacks.get_sensor_type ? callbacks.get_sensor_type() : SENSOR_TYPE_ONOFF);
     doc["device_name"] = m_device_name;
     doc["fw_version"] = FW_VERSION;
+    char mac_str[18];
+    mac_to_str(m_mac, mac_str, sizeof(mac_str));
+    doc["mac"] = mac_str;
+    doc["client_chip"] = hw_chip_type();
     String payload;
     serializeJson(doc, payload);
     if (send_to_hub("/node/register", payload)) {
         m_registered = true;
         m_retry_count = 0;
+        m_last_hub_contact_ms = millis();
         console.printf("[%s] Registered with hub\n", TAG);
         return true;
     }
@@ -177,6 +196,22 @@ void TcpNodeProtocol::check_commands() {
 void TcpNodeProtocol::loop() {
     unsigned long now = millis();
 
+    // ── Watchdogs ──
+    // WiFi: TCP node without WiFi is dead — restart (flip-flop proof:
+    // reconexoes breves < WATCHDOG_STABLE_RESET_MS nao estendem o timer)
+    if (m_wifi_wd.check(WiFi.status() == WL_CONNECTED, now)) {
+        console.printf("[%s] WiFi offline for too long, restarting...\n", TAG);
+        delay(100);
+        ESP.restart();
+    }
+    // Hub: no contact for too long — restart
+    unsigned long last_contact = m_last_hub_contact_ms > 0 ? m_last_hub_contact_ms : millis(); // start from now if never contacted
+    if (m_last_hub_contact_ms > 0 && (now - m_last_hub_contact_ms) > TCP_HUB_WATCHDOG_MS) {
+        console.printf("[%s] No hub contact for %lus, restarting...\n", TAG, (now - m_last_hub_contact_ms) / 1000);
+        delay(100);
+        ESP.restart();
+    }
+
     // UDP discovery
     handle_udp_announce();
     if (!m_hub_found && now - m_last_discover_ms > DISCOVER_INTERVAL_MS) {
@@ -212,7 +247,9 @@ void TcpNodeProtocol::loop() {
             doc["device_id"] = m_device_id;
             String payload;
             serializeJson(doc, payload);
-            send_to_hub("/node/heartbeat", payload);
+            if (send_to_hub("/node/heartbeat", payload)) {
+                m_last_hub_contact_ms = millis();
+            }
         }
     }
 
@@ -255,6 +292,7 @@ void TcpNodeProtocol::publish_state() {
     serializeJson(doc, payload);
     if (send_to_hub("/node/state", payload)) {
         m_last_state_ms = millis();
+        m_last_hub_contact_ms = millis();
     }
 }
 

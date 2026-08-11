@@ -49,7 +49,8 @@ typedef struct __attribute__((packed)) {
     uint8_t battery_pct;
     int16_t rssi;
     uint8_t payload_len;
-    uint8_t payload[ESPNOW_MAX_PAYLOAD - 18];
+    uint8_t ip[4];  // node WiFi IP (filled by sender, 0.0.0.0 if unknown)
+    uint8_t payload[ESPNOW_MAX_PAYLOAD - 22];
 } espnow_header_t;
 
 typedef struct __attribute__((packed)) {
