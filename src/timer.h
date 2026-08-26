@@ -15,6 +15,7 @@ typedef struct __attribute__((packed)) {
 bool timer_init(uint16_t eeprom_base, uint8_t max_timers);
 void timer_load();
 void timer_save();
+void timer_reset_fired(int index);
 bool timer_get(int index, timer_config_t *out);
 bool timer_set(int index, const timer_config_t *cfg);
 int8_t timer_check(unsigned long current_epoch, int timezone_offset);
@@ -42,11 +43,14 @@ void   cyclic_set_duration(uint16_t min);
 bool timer_save_littlefs(void);
 bool timer_load_littlefs(void);
 
-// --- Pulse config (persistence only — runtime logic stays in client) ---
+// --- Pulse config (persistence + runtime) ---
 
 bool     timer_pulse_get_enabled(void);
 uint16_t timer_pulse_get_duration(void);
 void     timer_pulse_set_enabled(bool enabled);
 void     timer_pulse_set_duration(uint16_t min);
+void     pulse_start(void);
+void     pulse_cancel(void);
+int8_t   pulse_check(unsigned long now_ms);
 
 #endif

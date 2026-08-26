@@ -8,6 +8,7 @@
 
 static timer_config_t *s_timers = nullptr;
 static uint16_t *s_last_fired_minute = nullptr;
+static unsigned long *s_last_fired_epoch = nullptr;
 static uint16_t s_eeprom_base = 0;
 static uint8_t s_max_timers = 0;
 static bool s_loaded = false;
@@ -22,9 +23,11 @@ bool timer_init(uint16_t eeprom_base, uint8_t max_timers) {
     s_max_timers = max_timers;
     s_timers = (timer_config_t *)calloc(max_timers, sizeof(timer_config_t));
     s_last_fired_minute = (uint16_t *)calloc(max_timers, sizeof(uint16_t));
-    if (!s_timers || !s_last_fired_minute) return false;
+    s_last_fired_epoch = (unsigned long *)calloc(max_timers, sizeof(unsigned long));
+    if (!s_timers || !s_last_fired_minute || !s_last_fired_epoch) return false;
     memset(s_timers, 0, max_timers * sizeof(timer_config_t));
     memset(s_last_fired_minute, 0xFF, max_timers * sizeof(uint16_t));
+    memset(s_last_fired_epoch, 0, max_timers * sizeof(unsigned long));
     timer_load();
     s_loaded = true;
     return true;
@@ -63,7 +66,14 @@ bool timer_set(int index, const timer_config_t *cfg) {
     if (index < 0 || index >= s_max_timers || !cfg) return false;
     s_timers[index] = *cfg;
     s_last_fired_minute[index] = 0xFF;
+    s_last_fired_epoch[index] = 0;
     return true;
+}
+
+void timer_reset_fired(int index) {
+    if (index < 0 || index >= s_max_timers) return;
+    s_last_fired_minute[index] = 0xFF;
+    s_last_fired_epoch[index] = 0;
 }
 
 int8_t timer_check(unsigned long current_epoch, int timezone_offset) {
@@ -79,11 +89,16 @@ int8_t timer_check(unsigned long current_epoch, int timezone_offset) {
         if (!s_timers[i].enabled) continue;
         uint16_t timer_minute_id = s_timers[i].hour * 60 + s_timers[i].minute;
         if (timer_minute_id != now_minute_id) continue;
-        if (s_last_fired_minute[i] == now_minute_id) continue;
         if (s_timers[i].days_mask != 0) {
             if (!(s_timers[i].days_mask & (1 << now_wday))) continue;
         }
+        /* Anti-re-fire: só bloqueia se disparou NA MESMA MINUTOS (evita
+           re-fire dentro do mesmo minuto). Limite de 120s garante que no
+           dia seguinte no mesmo horário o timer possa disparar novamente. */
+        if (s_last_fired_minute[i] == now_minute_id &&
+            (current_epoch - s_last_fired_epoch[i]) < 120) continue;
         s_last_fired_minute[i] = now_minute_id;
+        s_last_fired_epoch[i] = current_epoch;
         return (int8_t)s_timers[i].action;
     }
     return -1;
@@ -238,9 +253,31 @@ uint16_t cyclic_get_duration(void) { return s_cyclic.duration_min; }
 void cyclic_set_enabled(bool enabled) { s_cyclic.enabled = enabled; }
 void cyclic_set_duration(uint16_t min) { s_cyclic.duration_min = min; }
 
-// --- Pulse config (persistence only) ---
+// --- Pulse config (persistence + runtime) ---
+
+static unsigned long s_pulse_start_ms = 0;
+static bool s_pulse_active = false;
 
 bool     timer_pulse_get_enabled(void) { return s_pulse_cfg.enabled; }
 uint16_t timer_pulse_get_duration(void) { return s_pulse_cfg.duration_min; }
 void     timer_pulse_set_enabled(bool enabled) { s_pulse_cfg.enabled = enabled; }
 void     timer_pulse_set_duration(uint16_t min) { s_pulse_cfg.duration_min = min; }
+
+void pulse_start(void) {
+    if (!s_pulse_cfg.enabled) return;
+    s_pulse_start_ms = millis();
+    s_pulse_active = true;
+}
+
+void pulse_cancel(void) {
+    s_pulse_active = false;
+}
+
+int8_t pulse_check(unsigned long now_ms) {
+    if (!s_pulse_active || !s_pulse_cfg.enabled) return 0;
+    if (now_ms - s_pulse_start_ms >= (unsigned long)s_pulse_cfg.duration_min * 60000UL) {
+        s_pulse_active = false;
+        return -1;
+    }
+    return 0;
+}
