@@ -288,6 +288,10 @@ void EspnowNodeProtocol::handle_frame(const uint8_t* mac, const uint8_t* data, s
             }
         }
     } else if (msg_type == MSG_TIME_SYNC) {
+        if (len >= sizeof(espnow_time_sync_t)) {
+            const espnow_time_sync_t* ts = (const espnow_time_sync_t*)data;
+            if (callbacks.on_time_sync) callbacks.on_time_sync(ts->epoch_seconds);
+        }
     } else {
         if (callbacks.on_forward) {
             callbacks.on_forward(data, len, mac);

@@ -17,6 +17,7 @@ enum msg_type_t : uint8_t {
     MSG_REPEATER_STATUS = 0x0B,
     MSG_RESTART         = 0x0C,
     MSG_NAK             = 0x0D,
+    MSG_DEVICE_LIST     = 0x0E,
 };
 
 #endif

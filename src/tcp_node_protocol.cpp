@@ -124,6 +124,57 @@ bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
     return false;
 }
 
+bool TcpNodeProtocol::send_to_hub_get(const char* endpoint, String &response) {
+    if (WiFi.status() != WL_CONNECTED || !wifi_has_ip()) {
+        return false;
+    }
+    WiFiClient client;
+    HTTPClient http;
+    String url = String("http://") + m_hub_ip + ":" + String(m_hub_port) + endpoint;
+    if (http.begin(client, url)) {
+        http.setTimeout(HTTP_TIMEOUT_MS);
+        int httpCode = http.GET();
+        if (httpCode == 200) {
+            response = http.getString();
+            m_tx_count++;
+            m_rx_count++;
+            http.end();
+            return true;
+        }
+        http.end();
+    }
+    return false;
+}
+
+bool TcpNodeProtocol::fetch_hub_devices(char *json_out, size_t max_len) {
+    String resp;
+    if (!send_to_hub_get("/api/sensors", resp)) {
+        return false;
+    }
+    // Parse hub response and extract only id+name for each paired device
+    JsonDocument doc;
+    DeserializationError err = deserializeJson(doc, resp);
+    if (err) return false;
+    JsonDocument out;
+    JsonArray arr = out.to<JsonArray>();
+    JsonArray sensors = doc.as<JsonArray>();
+    for (JsonVariant v : sensors) {
+        if (!v.is<JsonObject>()) continue;
+        JsonObject s = v.as<JsonObject>();
+        bool paired = s["paired"] | false;
+        if (!paired) continue;
+        const char *bridge_id = s["bridge_device_id"] | "";
+        const char *name = s["name"] | "";
+        if (strlen(bridge_id) == 0) continue;
+        JsonObject obj = arr.add<JsonObject>();
+        obj["id"] = bridge_id;
+        obj["name"] = (strlen(name) > 0) ? name : bridge_id;
+    }
+    // Write JSON string to output buffer
+    size_t written = serializeJson(out, (char*)json_out, max_len);
+    return written > 0;
+}
+
 void TcpNodeProtocol::send_udp_discover() {
     tcp_gw_discover_t disc;
     memset(&disc, 0, sizeof(disc));
@@ -192,13 +243,23 @@ void TcpNodeProtocol::check_commands() {
             String response = http.getString();
             JsonDocument doc;
             DeserializationError err = deserializeJson(doc, response);
-            if (!err && doc.containsKey("command") && !doc["command"].isNull()) {
-                const char* cmd = doc["command"];
-                if (strcmp(cmd, "restart") == 0) {
-                    if (callbacks.on_restart) callbacks.on_restart();
-                } else if (callbacks.on_command) {
-                    uint8_t val = (strcmp(cmd, "on") == 0) ? 0x01 : 0x00;
-                    callbacks.on_command(val);
+            if (!err) {
+                // Piggybacked epoch from hub's command poll response
+                if (doc.containsKey("epoch") && !doc["epoch"].isNull()) {
+                    uint32_t epoch = doc["epoch"].as<uint32_t>();
+                    if (epoch > 0 && callbacks.on_time_sync) {
+                        callbacks.on_time_sync(epoch);
+                    }
+                }
+
+                if (doc.containsKey("command") && !doc["command"].isNull()) {
+                    const char* cmd = doc["command"];
+                    if (strcmp(cmd, "restart") == 0) {
+                        if (callbacks.on_restart) callbacks.on_restart();
+                    } else if (callbacks.on_command) {
+                        uint8_t val = (strcmp(cmd, "on") == 0) ? 0x01 : 0x00;
+                        callbacks.on_command(val);
+                    }
                 }
             }
         }

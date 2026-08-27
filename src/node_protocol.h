@@ -13,6 +13,7 @@ struct NodeCallbacks {
     void    (*on_restart)();
     void    (*on_forward)(const uint8_t* data, size_t len, const uint8_t* mac);
     void    (*on_pairing_failed)();  /* called when all pair attempts exhausted — try next AP */
+    void    (*on_time_sync)(uint32_t epoch_seconds);  /* hub broadcasts epoch via MSG_TIME_SYNC */
 };
 
 class NodeProtocol {

@@ -36,6 +36,7 @@ public:
     virtual uint8_t* get_radio_mac() { return nullptr; }
     virtual void announce() {}
     virtual void broadcast_time_sync(uint32_t epoch) { (void)epoch; }
+    virtual void broadcast_device_list() {}
 
 protected:
     rx_callback_t m_rx_cb = nullptr;

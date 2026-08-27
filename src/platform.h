@@ -5,11 +5,16 @@
 
 #if defined(ARDUINO_ARCH_ESP32)
   #include <WiFi.h>
-  #include <WebServer.h>
   #include <esp_now.h>
   #include <Update.h>
   #define PLATFORM_PREFIX "agri"
-  typedef WebServer MyWebServer;
+  #if defined(ASYNC_WEB_ENABLED)
+    #include <ESPAsyncWebServer.h>
+    typedef AsyncWebServer MyWebServer;
+  #else
+    #include <WebServer.h>
+    typedef WebServer MyWebServer;
+  #endif
 
   static inline uint32_t chip_id() {
       return (uint32_t)(ESP.getEfuseMac() & 0xFFFFFFFF);

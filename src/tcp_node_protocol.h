@@ -45,6 +45,11 @@ public:
         return ip;
     }
 
+    // HTTP helpers (public for node-level sync / device-list features)
+    bool send_to_hub(const char *endpoint, const String &payload);
+    bool send_to_hub_get(const char *endpoint, String &response);
+    bool fetch_hub_devices(char *json_out, size_t max_len);
+
 private:
     uint8_t m_mac[6];
     uint8_t m_gateway_mac[6];
@@ -77,7 +82,6 @@ private:
     void send_udp_discover();
     void handle_udp_announce();
     bool register_with_hub();
-    bool send_to_hub(const char *endpoint, const String &payload);
     void check_commands();
 };
 
