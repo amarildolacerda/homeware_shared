@@ -2,7 +2,7 @@
 #include "shared_config.h"
 #include "common_console.h"
 #include <LittleFS.h>
-#include <Arduino.h>
+#include <EEPROM.h>
 #include <ArduinoJson.h>
 
 // Migration marker in EEPROM (offset 500, outside all layouts)
