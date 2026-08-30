@@ -3,32 +3,21 @@
 
 #include <Arduino.h>
 
-// --- File paths on LittleFS ---
-#define CFG_FILE_WIFI    "/wifi.json"
-#define CFG_FILE_DEVICE  "/device.json"
-#define CFG_FILE_HUB     "/hub.json"
-#define CFG_FILE_NODE    "/node.json"
+// ============================================================================
+// Hybrid ConfigStore: LittleFS for complex/rarely-written data, EEPROM for
+// simple/frequently-accessed data.
+//
+// LittleFS (file):  sensor_registry (hub), timers (nodes), MQTT config (hub)
+// EEPROM (kept):    WiFi creds, device name, gateway MAC, relay state,
+//                   operation mode, pairing enabled, enable flags, etc.
+// ============================================================================
 
-// --- WiFi Config ---
-struct WiFiConfig {
-    char     ssid[33];
-    char     password[65];
-    uint8_t  mode;        // 0=DHCP, 1=Static
-    char     ip[16];
-    char     gateway[16];
-    char     netmask[16];
-    char     dns[16];
-    uint8_t  channel;     // 0=auto, 1-13=forced
-};
+// --- LittleFS file paths ---
+#define CFG_FILE_SENSORS  "/sensors.json"
+#define CFG_FILE_MQTT     "/mqtt.json"
+#define CFG_FILE_TIMERS   "/timers.json"
 
-// --- Device Config (shared) ---
-struct DeviceConfig {
-    char     name[48];
-    uint8_t  gateway_mac[6];
-    bool     gateway_mac_valid;
-};
-
-// --- Sensor Registry Slot (hub) ---
+// --- Sensor Registry Slot (hub — stored in LittleFS) ---
 struct SensorSlot {
     bool     paired;
     uint8_t  sensor_type;
@@ -40,7 +29,7 @@ struct SensorSlot {
     char     bridge_device_id[16];
 };
 
-// --- MQTT Config (hub) ---
+// --- MQTT Config (hub — stored in LittleFS) ---
 struct MQTTConfig {
     char     host[64];
     uint16_t port;
@@ -48,15 +37,7 @@ struct MQTTConfig {
     char     password[32];
 };
 
-// --- Hub Config ---
-struct HubConfig {
-    SensorSlot sensors[64];
-    MQTTConfig mqtt;
-    bool     pairing_enabled;
-    uint8_t  op_mode;      // 0=Terminal, 1=AP, 2=Hybrid
-};
-
-// --- Timer Config (nodes) ---
+// --- Timer Config (nodes — stored in LittleFS) ---
 struct TimerCfg {
     bool     enabled;
     uint8_t  hour;
@@ -67,53 +48,25 @@ struct TimerCfg {
 
 #define CFG_MAX_TIMERS 6
 
-// --- Node Config ---
-struct NodeConfig {
-    // Relay
-    bool     relay_state;
-    uint8_t  relay_pin;
-    uint8_t  button_pin;
-    bool     led_enabled;
-    uint8_t  startup_mode;  // 0=OFF, 1=ON, 2=SAME
-    // Repeater
-    bool     repeater_enabled;
-    // Timer
-    TimerCfg timers[CFG_MAX_TIMERS];
-    // Operation mode
-    uint8_t  op_mode;
-    // Climate/Gas enable flags
-    bool     temp_enabled;
-    bool     gas_enabled;
-    // Deep sleep interval
-    uint32_t sleep_interval;
-};
-
 // --- API ---
 
-// Initialize LittleFS + auto-migrate from EEPROM
+// Initialize LittleFS (called once in setup)
 void config_store_init();
 
-// WiFi
-bool config_wifi_load(WiFiConfig *cfg);
-bool config_wifi_save(const WiFiConfig *cfg);
+// Hub: sensor registry (64 slots in /sensors.json)
+bool config_sensors_load(SensorSlot sensors[], int max_slots);
+bool config_sensors_save(const SensorSlot sensors[], int count);
 
-// Device
-bool config_device_load(DeviceConfig *cfg);
-bool config_device_save(const DeviceConfig *cfg);
+// Hub: MQTT config (/mqtt.json)
+bool config_mqtt_load(MQTTConfig *cfg);
+bool config_mqtt_save(const MQTTConfig *cfg);
 
-// Hub
-bool config_hub_load(HubConfig *cfg);
-bool config_hub_save(const HubConfig *cfg);
-
-// Node
-bool config_node_load(NodeConfig *cfg);
-bool config_node_save(const NodeConfig *cfg);
+// Node: timers (/timers.json)
+bool config_timers_load(TimerCfg timers[], int max_timers);
+bool config_timers_save(const TimerCfg timers[], int count);
 
 // Generic helpers
 bool config_file_exists(const char *path);
 bool config_file_remove(const char *path);
-
-// Migration from EEPROM (called once)
-void config_migrate_from_eeprom();
 
 #endif

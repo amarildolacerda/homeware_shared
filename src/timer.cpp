@@ -1,6 +1,5 @@
 #include "timer.h"
 #include <Arduino.h>
-#include <EEPROM.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
 
@@ -34,26 +33,13 @@ bool timer_init(uint16_t eeprom_base, uint8_t max_timers) {
 }
 
 void timer_load() {
-    EEPROM.begin(512);
-    for (int i = 0; i < s_max_timers; i++) {
-        int addr = s_eeprom_base + i * sizeof(timer_config_t);
-        uint8_t *dst = (uint8_t*)&s_timers[i];
-        for (size_t j = 0; j < sizeof(timer_config_t); j++)
-            dst[j] = EEPROM.read(addr + j);
+    if (!timer_load_littlefs()) {
+        memset(s_timers, 0, s_max_timers * sizeof(timer_config_t));
     }
-    EEPROM.end();
 }
 
 void timer_save() {
-    EEPROM.begin(512);
-    for (int i = 0; i < s_max_timers; i++) {
-        int addr = s_eeprom_base + i * sizeof(timer_config_t);
-        uint8_t *src = (uint8_t*)&s_timers[i];
-        for (size_t j = 0; j < sizeof(timer_config_t); j++)
-            EEPROM.write(addr + j, src[j]);
-    }
-    EEPROM.commit();
-    EEPROM.end();
+    timer_save_littlefs();
 }
 
 bool timer_get(int index, timer_config_t *out) {
