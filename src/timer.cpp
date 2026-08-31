@@ -243,6 +243,7 @@ void cyclic_set_duration(uint16_t min) { s_cyclic.duration_min = min; }
 
 static unsigned long s_pulse_start_ms = 0;
 static bool s_pulse_active = false;
+static bool s_pulse_needs_init = false;
 
 bool     timer_pulse_get_enabled(void) { return s_pulse_cfg.enabled; }
 uint16_t timer_pulse_get_duration(void) { return s_pulse_cfg.duration_min; }
@@ -250,18 +251,25 @@ void     timer_pulse_set_enabled(bool enabled) { s_pulse_cfg.enabled = enabled; 
 void     timer_pulse_set_duration(uint16_t min) { s_pulse_cfg.duration_min = min; }
 
 void pulse_start(void) {
-    if (!s_pulse_cfg.enabled) return;
-    s_pulse_start_ms = millis();
+    if (!s_pulse_cfg.enabled || s_pulse_cfg.duration_min == 0) return;
     s_pulse_active = true;
+    s_pulse_needs_init = true;
 }
 
 void pulse_cancel(void) {
     s_pulse_active = false;
+    s_pulse_needs_init = false;
 }
 
 int8_t pulse_check(unsigned long now_ms) {
-    if (!s_pulse_active || !s_pulse_cfg.enabled) return 0;
-    if (now_ms - s_pulse_start_ms >= (unsigned long)s_pulse_cfg.duration_min * 60000UL) {
+    if (!s_pulse_active || !s_pulse_cfg.enabled || s_pulse_cfg.duration_min == 0) return 0;
+    if (s_pulse_needs_init) {
+        s_pulse_start_ms = now_ms;
+        s_pulse_needs_init = false;
+    }
+    unsigned long elapsed = now_ms - s_pulse_start_ms;
+    unsigned long timeout = (unsigned long)s_pulse_cfg.duration_min * 60000UL;
+    if (elapsed >= timeout) {
         s_pulse_active = false;
         return -1;
     }

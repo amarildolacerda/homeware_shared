@@ -316,6 +316,30 @@ void mywifi_save_creds(const char *ssid, const char *pass) {
     Serial.printf("[wifi] Credentials saved: %s\n", ssid);
 }
 
+bool mywifi_net_load(int *mode, char *ip, char *gw, char *mask, char *dns) {
+    sh_net_load(mode, ip, gw, mask, dns);
+    return *mode == WIFI_MODE_STATIC;
+}
+
+void mywifi_save_net(int mode, const char *ip, const char *gw, const char *mask, const char *dns) {
+    EEPROM.begin(EEPROM_SIZE);
+    EEPROM.write(EEPROM_WIFI_MODE_OFFSET, mode);
+    auto write_str = [](int off, int size, const char *str) {
+        int i = 0;
+        for (; i < size - 1 && str && str[i]; i++)
+            EEPROM.write(off + i, str[i]);
+        EEPROM.write(off + i, 0);
+    };
+    write_str(EEPROM_WIFI_IP_OFFSET,  EEPROM_WIFI_IP_SIZE,  ip);
+    write_str(EEPROM_WIFI_GW_OFFSET,  EEPROM_WIFI_GW_SIZE,  gw);
+    write_str(EEPROM_WIFI_MASK_OFFSET, EEPROM_WIFI_MASK_SIZE, mask);
+    write_str(EEPROM_WIFI_DNS_OFFSET, EEPROM_WIFI_DNS_SIZE, dns);
+    EEPROM.commit();
+    EEPROM.end();
+    Serial.printf("[wifi] Net config saved: mode=%d ip=%s gw=%s mask=%s dns=%s\n",
+                  mode, ip ? ip : "", gw ? gw : "", mask ? mask : "", dns ? dns : "");
+}
+
 bool mywifi_portal(char *name_buf, size_t name_size, void (*on_name)(const char*)) {
 #if defined(ARDUINO_ARCH_ESP32)
     return false;

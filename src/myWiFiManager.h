@@ -29,5 +29,7 @@ int mywifi_channel();
 int mywifi_configured_channel();
 void mywifi_save_channel(uint8_t ch);
 void mywifi_save_creds(const char *ssid, const char *pass);
+void mywifi_save_net(int mode, const char *ip, const char *gw, const char *mask, const char *dns);
+bool mywifi_net_load(int *mode, char *ip, char *gw, char *mask, char *dns);
 
 #endif
