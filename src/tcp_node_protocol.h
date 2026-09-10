@@ -36,8 +36,11 @@ public:
     uint32_t tx_count() const override { return m_tx_count; }
     uint32_t rx_count() const override { return m_rx_count; }
 
-    // TCP-specific: set device_id (needed before begin)
+     // TCP-specific: set device_id (needed before begin)
     void set_device_id(const char *id);
+    void set_hub_ip(const char *ip);
+    const char* hub_ip_str() const { return m_hub_ip; }
+    bool hub_ip_configured() const { return m_hub_ip_configured; }
     IPAddress gateway_ip() const
     {
         IPAddress ip;
@@ -62,6 +65,7 @@ private:
 
     char m_hub_ip[16];
     uint16_t m_hub_port;
+    bool m_hub_ip_configured;
 
     unsigned long m_pair_interval_ms;
     unsigned long m_heartbeat_interval_ms;

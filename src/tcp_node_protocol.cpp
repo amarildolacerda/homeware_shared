@@ -19,6 +19,7 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 #include <string.h>
+#include <EEPROM.h>
 
 #define HTTP_TIMEOUT_MS 3000
 #define DISCOVER_INTERVAL_MS 10000
@@ -43,6 +44,7 @@ static inline bool wifi_has_ip() {
 TcpNodeProtocol::TcpNodeProtocol()
     : m_slot(0), m_registered(false), m_hub_found(false), m_retry_count(0)
     , m_hub_port(TCP_HTTP_PORT)
+    , m_hub_ip_configured(false)
     , m_pair_interval_ms(5000), m_heartbeat_interval_ms(60000)
     , m_state_interval_ms(60000), m_last_state_ms(0)
     , m_last_heartbeat_ms(0), m_last_discover_ms(0), m_last_register_ms(0)
@@ -61,6 +63,36 @@ TcpNodeProtocol::TcpNodeProtocol()
 void TcpNodeProtocol::set_device_id(const char* id) {
     strncpy(m_device_id, id, sizeof(m_device_id) - 1);
     m_device_id[sizeof(m_device_id) - 1] = '\0';
+}
+
+void TcpNodeProtocol::set_hub_ip(const char* ip) {
+    if (!ip || strlen(ip)==0) {
+        // limpar config fixa -> voltar ao discovery
+        EEPROM.begin(EEPROM_SIZE);
+        for(int i=0;i<EEPROM_NODE_HUB_IP_SIZE;i++) EEPROM.write(EEPROM_NODE_HUB_IP_OFFSET+i, 0);
+        EEPROM.commit(); EEPROM.end();
+        m_hub_ip_configured = false;
+        strncpy(m_hub_ip, HUB_IP_DEFAULT, sizeof(m_hub_ip)-1);
+        m_hub_found = false;
+        m_registered = false;
+        console.printf("[%s] Hub IP fixo limpo, voltando ao UDP discovery\n", TAG);
+        return;
+    }
+    IPAddress test;
+    if (!test.fromString(ip)) {
+        console.printf("[%s] Hub IP inválido: %s\n", TAG, ip);
+        return;
+    }
+    strncpy(m_hub_ip, ip, sizeof(m_hub_ip)-1);
+    m_hub_ip[sizeof(m_hub_ip)-1]='\0';
+    m_hub_ip_configured = true;
+    m_hub_found = true;
+    m_registered = false;
+    m_last_discover_ms = millis();
+    EEPROM.begin(EEPROM_SIZE);
+    for(int i=0;i<EEPROM_NODE_HUB_IP_SIZE;i++) EEPROM.write(EEPROM_NODE_HUB_IP_OFFSET+i, i<(int)strlen(ip)?ip[i]:0);
+    EEPROM.commit(); EEPROM.end();
+    console.printf("[%s] Hub IP fixo configurado: %s\n", TAG, m_hub_ip);
 }
 
 void TcpNodeProtocol::set_mac(const uint8_t* mac) {
@@ -86,12 +118,24 @@ void TcpNodeProtocol::load_gateway_mac() {
 
 void TcpNodeProtocol::begin() {
     m_udp.begin(TCP_UDP_PORT);
-    m_last_discover_ms = 0; // trigger immediate discover
+    // Carregar Hub IP fixo se configurado via /api/wifi
+    {
+        EEPROM.begin(EEPROM_SIZE);
+        char buf[EEPROM_NODE_HUB_IP_SIZE];
+        int pos=0;
+        for(int i=0;i<EEPROM_NODE_HUB_IP_SIZE-1;i++){ uint8_t c=EEPROM.read(EEPROM_NODE_HUB_IP_OFFSET+i); if(c==0) break; if(c<32||c>126) break; buf[pos++]=(char)c; }
+        buf[pos]='\0';
+        EEPROM.end();
+        if(pos>0){
+            IPAddress test; if(test.fromString(buf)){ strncpy(m_hub_ip, buf, sizeof(m_hub_ip)-1); m_hub_ip_configured=true; m_hub_found=true; console.printf("[%s] Hub IP fixo carregado: %s\n", TAG, m_hub_ip); }
+        }
+    }
+    m_last_discover_ms = 0; // trigger immediate discover (se nao fixo)
     // WiFi watchdog a prova de flip-flop: arma desde o boot (node TCP sem WiFi
     // nunca conectado tambem reinicia), mas so re-arma apos 60s continuos de
     // WiFi conectado — reconexoes breves nao desarmam o watchdog.
     m_wifi_wd.init(WATCHDOG_STABLE_RESET_MS, TCP_WIFI_WATCHDOG_MS, true);
-    console.printf("[%s] Initialized (TCP mode)\n", TAG);
+    console.printf("[%s] Initialized (TCP mode)%s\n", TAG, m_hub_ip_configured?" (hub fixo)":"");
 }
 
 bool TcpNodeProtocol::send_to_hub(const char* endpoint, const String& payload) {
@@ -195,6 +239,7 @@ void TcpNodeProtocol::handle_udp_announce() {
     int len = m_udp.read(buf, sizeof(buf));
     if (len < (int)sizeof(tcp_gw_announce_t)) return;
     if (buf[0] != MSG_GW_ANNOUNCE) return;
+    if (m_hub_ip_configured) return; // hub fixo tem prioridade
     tcp_gw_announce_t* ann = (tcp_gw_announce_t*)buf;
     memset(m_hub_ip, 0, sizeof(m_hub_ip));
     strncpy(m_hub_ip, ann->hub_ip, sizeof(m_hub_ip) - 1);
@@ -286,9 +331,9 @@ void TcpNodeProtocol::loop() {
         ESP.restart();
     }
 
-    // UDP discovery
+    // UDP discovery (pula se hub fixo)
     handle_udp_announce();
-    if (!m_hub_found && now - m_last_discover_ms > DISCOVER_INTERVAL_MS) {
+    if (!m_hub_ip_configured && !m_hub_found && now - m_last_discover_ms > DISCOVER_INTERVAL_MS) {
         m_last_discover_ms = now;
         send_udp_discover();
     }
@@ -372,9 +417,9 @@ void TcpNodeProtocol::publish_state() {
 
 void TcpNodeProtocol::force_repair() {
     m_registered = false;
-    m_hub_found = false;
+    if (!m_hub_ip_configured) m_hub_found = false;
     m_last_discover_ms = 0;
-    console.printf("[%s] Force repair: will re-discover hub\n", TAG);
+    console.printf("[%s] Force repair: will %s hub\n", TAG, m_hub_ip_configured?"re-register fixo":"re-discover");
 }
 
 #endif // TCP_ENABLED

@@ -33,6 +33,10 @@
 #define EEPROM_WIFI_CHANNEL_OFFSET (EEPROM_WIFI_DNS_OFFSET + EEPROM_WIFI_DNS_SIZE)
 #define EEPROM_WIFI_CHANNEL_SIZE 1
 
+// Node hub fixed IP (para TcpNodeProtocol - 2 hubs na mesma LAN)
+#define EEPROM_NODE_HUB_IP_OFFSET 200
+#define EEPROM_NODE_HUB_IP_SIZE 16
+
 // EEPROM layout shared by all clients (common_espnow.h):
 //   [0]    = MAGIC 0xAA (gateway MAC present)
 //   [1..6] = gateway MAC
