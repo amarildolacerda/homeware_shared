@@ -48,9 +48,11 @@ bool timer_load_littlefs(void);
 
 bool     timer_pulse_get_enabled(void);
 uint16_t timer_pulse_get_duration(void);
+bool     timer_pulse_get_skip_on_timer(void);
 void     timer_pulse_set_enabled(bool enabled);
 void     timer_pulse_set_duration(uint16_t min);
-void     pulse_start(void);
+void     timer_pulse_set_skip_on_timer(bool skip);
+void     pulse_start(bool from_timer);
 void     pulse_cancel(void);
 int8_t   pulse_check(unsigned long now_ms);
 

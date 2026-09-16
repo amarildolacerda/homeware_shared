@@ -14,7 +14,7 @@ static uint8_t s_max_timers = 0;
 static bool s_loaded = false;
 
 static cyclic_config_t s_cyclic = {0, 30};
-static struct { bool enabled; uint16_t duration_min; } s_pulse_cfg = {false, 60};
+static struct { bool enabled; uint16_t duration_min; bool skip_on_timer; } s_pulse_cfg = {false, 60, false};
 static bool s_cyclic_waiting_off = false;
 static unsigned long s_cyclic_next_event = 0;
 
@@ -224,6 +224,7 @@ bool timer_load_littlefs(void) {
         JsonObject p = doc["pulse"];
         s_pulse_cfg.enabled = p["enabled"] | false;
         s_pulse_cfg.duration_min = p["duration_min"] | 60;
+        s_pulse_cfg.skip_on_timer = p["skip_on_timer"] | false;
     }
     return true;
 }
@@ -245,6 +246,7 @@ bool timer_save_littlefs(void) {
     JsonObject p = doc["pulse"].to<JsonObject>();
     p["enabled"] = s_pulse_cfg.enabled;
     p["duration_min"] = s_pulse_cfg.duration_min;
+    p["skip_on_timer"] = s_pulse_cfg.skip_on_timer;
     File f = LittleFS.open(TIMER_LITTLEFS_FILE, "w");
     if (!f) return false;
     serializeJson(doc, f);
@@ -290,11 +292,14 @@ static bool s_pulse_needs_init = false;
 
 bool     timer_pulse_get_enabled(void) { return s_pulse_cfg.enabled; }
 uint16_t timer_pulse_get_duration(void) { return s_pulse_cfg.duration_min; }
+bool     timer_pulse_get_skip_on_timer(void) { return s_pulse_cfg.skip_on_timer; }
 void     timer_pulse_set_enabled(bool enabled) { s_pulse_cfg.enabled = enabled; }
 void     timer_pulse_set_duration(uint16_t min) { s_pulse_cfg.duration_min = min; }
+void     timer_pulse_set_skip_on_timer(bool skip) { s_pulse_cfg.skip_on_timer = skip; }
 
-void pulse_start(void) {
+void pulse_start(bool from_timer) {
     if (!s_pulse_cfg.enabled || s_pulse_cfg.duration_min == 0) return;
+    if (from_timer && s_pulse_cfg.skip_on_timer) return;
     s_pulse_active = true;
     s_pulse_needs_init = true;
 }
