@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include "common_console.h"
 
 #define TIMER_LITTLEFS_FILE "/timers.json"
 
@@ -74,6 +75,10 @@ int8_t timer_check(unsigned long current_epoch, int timezone_offset) {
     for (int i = 0; i < s_max_timers; i++) {
         if (!s_timers[i].enabled) continue;
         uint16_t timer_minute_id = s_timers[i].hour * 60 + s_timers[i].minute;
+
+        //OC: precisa validar esses IFs, alguma coisa esta falhando
+        // criar LOGs para os valores usados nos ifs    
+        // begin
         if (timer_minute_id != now_minute_id) continue;
         if (s_timers[i].days_mask != 0) {
             if (!(s_timers[i].days_mask & (1 << now_wday))) continue;
@@ -83,11 +88,50 @@ int8_t timer_check(unsigned long current_epoch, int timezone_offset) {
            dia seguinte no mesmo horário o timer possa disparar novamente. */
         if (s_last_fired_minute[i] == now_minute_id &&
             (current_epoch - s_last_fired_epoch[i]) < 120) continue;
+        // end    
         s_last_fired_minute[i] = now_minute_id;
         s_last_fired_epoch[i] = current_epoch;
         return (int8_t)s_timers[i].action;
     }
     return -1;
+}
+
+void timer_debug_dump(unsigned long current_epoch, int timezone_offset) {
+    if (!s_loaded) {
+        console.println("[timer] NOT LOADED");
+        return;
+    }
+    console.printf("[timer] epoch=%lu tz=%d loaded=%d max=%d\n",
+                  current_epoch, timezone_offset, s_loaded, s_max_timers);
+    if (current_epoch < 100000) {
+        console.println("[timer] epoch too low, skipping");
+        return;
+    }
+    time_t lt_epoch = (time_t)(current_epoch + (timezone_offset * 3600));
+    struct tm *lt = localtime(&lt_epoch);
+    console.printf("[timer] local: %02d:%02d wday=%d (%s) minute_id=%u\n",
+                  lt->tm_hour, lt->tm_min, lt->tm_wday,
+                  lt->tm_wday == 0 ? "Dom" : lt->tm_wday == 1 ? "Seg" :
+                  lt->tm_wday == 2 ? "Ter" : lt->tm_wday == 3 ? "Qua" :
+                  lt->tm_wday == 4 ? "Qui" : lt->tm_wday == 5 ? "Sex" : "Sab",
+                  lt->tm_hour * 60 + lt->tm_min);
+    for (int i = 0; i < s_max_timers; i++) {
+        uint16_t timer_mid = s_timers[i].hour * 60 + s_timers[i].minute;
+        uint16_t now_mid = lt->tm_hour * 60 + lt->tm_min;
+        bool day_match = (s_timers[i].days_mask == 0) ||
+                         (s_timers[i].days_mask & (1 << lt->tm_wday));
+        bool time_match = (timer_mid == now_mid);
+        bool anti_re = (s_last_fired_minute[i] == now_mid &&
+                        (current_epoch - s_last_fired_epoch[i]) < 120);
+        console.printf("[timer] [%d] en=%d %02d:%02d act=%d mask=0x%02X | "
+                      "t_mid=%u n_mid=%u day_ok=%d time_ok=%d anti=%d "
+                      "last_fired_min=%u last_fired_ep=%lu\n",
+                      i, s_timers[i].enabled,
+                      s_timers[i].hour, s_timers[i].minute,
+                      s_timers[i].action, s_timers[i].days_mask,
+                      timer_mid, now_mid, day_match, time_match, anti_re,
+                      s_last_fired_minute[i], s_last_fired_epoch[i]);
+    }
 }
 
 void timer_get_next(unsigned long current_epoch, int timezone_offset,
@@ -104,16 +148,15 @@ void timer_get_next(unsigned long current_epoch, int timezone_offset,
     for (int i = 0; i < s_max_timers; i++) {
         if (!s_timers[i].enabled) continue;
         uint16_t timer_slot = s_timers[i].hour * 60 + s_timers[i].minute;
-        bool day_ok = (s_timers[i].days_mask == 0);
-        if (!day_ok) {
-            for (int d = 0; d < 7; d++)
-                if (s_timers[i].days_mask & (1 << d)) { day_ok = true; break; }
-        }
+        /* day_ok: mask 0 = todos os dias; senão verifica se HOJE bate */
+        bool day_ok = (s_timers[i].days_mask == 0) ||
+                      (s_timers[i].days_mask & (1 << now_wday));
         if (!day_ok) continue;
-        unsigned long candidate = current_epoch;
-        if (timer_slot <= now_slot) candidate += 86400;
-        candidate += (timer_slot - now_slot) * 60;
-        candidate -= timezone_offset * 3600;
+        /* candidate = epoch UTC do próximo disparo deste timer */
+        unsigned long diff_sec = (timer_slot > now_slot)
+            ? (unsigned long)(timer_slot - now_slot) * 60
+            : (unsigned long)(86400 - (now_slot - timer_slot)) * 60;
+        unsigned long candidate = current_epoch + diff_sec;
         if (best_epoch == 0 || candidate < best_epoch) {
             best_epoch = candidate; best_action = s_timers[i].action;
         }

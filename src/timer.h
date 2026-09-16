@@ -23,6 +23,7 @@ void timer_get_next(unsigned long current_epoch, int timezone_offset,
                     unsigned long *next_epoch, uint8_t *next_action);
 void timer_to_json(JsonDocument &doc);
 bool timer_from_json(JsonDocument &doc);
+void timer_debug_dump(unsigned long current_epoch, int timezone_offset);
 
 // --- Cyclic timer ---
 
