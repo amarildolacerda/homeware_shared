@@ -69,6 +69,12 @@ typedef struct __attribute__((packed)) {
 } payload_motion_t;
 
 typedef struct __attribute__((packed)) {
+    uint16_t value;
+    uint8_t ext_value;
+} payload_int_t;
+
+
+typedef struct __attribute__((packed)) {
     uint16_t gas_level;
     uint8_t alarm;
 } payload_gas_t;

@@ -16,6 +16,7 @@ typedef enum : uint8_t {
     SENSOR_TYPE_REPEATER = 10,
     SENSOR_TYPE_DHT_RELE = 11,
     SENSOR_TYPE_SOIL_MOISTURE = 12,
+    SENSOR_TYPE_ACQUIRY = 13,
 } sensor_type_t;
 
 #endif
