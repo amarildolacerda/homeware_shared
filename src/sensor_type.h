@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 typedef enum : uint8_t {
+    SENSOR_TYPE_DEFAULT = 0,
     SENSOR_TYPE_TEMP_HUM = 1,
     SENSOR_TYPE_CONTACT = 2,
     SENSOR_TYPE_MOTION = 3,
