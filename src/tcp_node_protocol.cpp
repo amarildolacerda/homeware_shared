@@ -399,8 +399,20 @@ void TcpNodeProtocol::publish_state() {
     if (callbacks.get_sensor_payload) {
         uint8_t buf[32];
         uint8_t len = callbacks.get_sensor_payload(buf, sizeof(buf));
+        if (len >= sizeof(payload_int_t)) {
+            // Generic int payload: value (0/1 = on/off, >1 = leitura) + label dinâmico
+            payload_int_t* pl = (payload_int_t*)buf;
+            doc["value"] = pl->value;
+            doc["state"] = (pl->value != 0);
+            if (pl->label[0]) {
+                char label[sizeof(pl->label) + 1];
+                memcpy(label, pl->label, sizeof(pl->label));
+                label[sizeof(pl->label)] = '\0';
+                doc["label"] = label;
+            }
+        }
         // For ONOFF/LIGHT: extract relay state
-        if (len >= sizeof(payload_onoff_t)) {
+        else if (len >= sizeof(payload_onoff_t)) {
             payload_onoff_t* pl = (payload_onoff_t*)buf;
             doc["relay_state"] = (pl->state != 0);
             doc["state"] = (pl->state != 0);

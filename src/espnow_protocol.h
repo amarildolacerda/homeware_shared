@@ -69,8 +69,9 @@ typedef struct __attribute__((packed)) {
 } payload_motion_t;
 
 typedef struct __attribute__((packed)) {
-    uint16_t value;
-    uint8_t ext_value;
+    uint16_t value; // 0 ou 1 para on/off; >1 = leitura do sensor (0-1024)
+    uint8_t accepts_command; // 1 = aceita comando on/off do hub (0 = somente leitura)
+    char label[12]; // texto curto de estado p/ card do hub (ex: "cheio"); '\0'-terminado
 } payload_int_t;
 
 
