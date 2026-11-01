@@ -34,8 +34,14 @@
 #define EEPROM_WIFI_CHANNEL_SIZE 1
 
 // Node hub fixed IP (para TcpNodeProtocol - 2 hubs na mesma LAN)
+// Faixa 200..215. NÃO usar estes offsets para dados locais do node.
 #define EEPROM_NODE_HUB_IP_OFFSET 200
 #define EEPROM_NODE_HUB_IP_SIZE 16
+
+// Protocolo node -> hub (radio_mode.h): 0 = ESP-NOW, 1 = TCP.
+// Usado apenas em builds com RADIO_SELECT_ENABLED. Faixa 216+ é livre.
+#define EEPROM_RADIO_MODE_OFFSET 216
+#define EEPROM_RADIO_MODE_SIZE 1
 
 // EEPROM layout shared by all clients (common_espnow.h):
 //   [0]    = MAGIC 0xAA (gateway MAC present)

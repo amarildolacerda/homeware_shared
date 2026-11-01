@@ -35,6 +35,7 @@ public:
 
     uint32_t tx_count() const override { return m_tx_count; }
     uint32_t rx_count() const override { return m_rx_count; }
+    bool uses_tcp() const override { return true; }
 
      // TCP-specific: set device_id (needed before begin)
     void set_device_id(const char *id);

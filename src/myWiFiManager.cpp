@@ -1,5 +1,8 @@
 #include "myWiFiManager.h"
 #include <EEPROM.h>
+#ifdef ESPNOW_ENABLED
+  #include "radio_mode.h"
+#endif
 
 static wifi_state_t s_state = WIFI_STATE_DISCONNECTED;
 static char s_ssid[33] = {0};
@@ -154,7 +157,9 @@ return false;
 void mywifi_loop() {
     if (WiFi.status() == WL_CONNECTED) {
 #ifdef ESPNOW_ENABLED
-        if (s_wifi_channel > 0) {
+        /* Verificação de canal só faz sentido quando o ESP-NOW está ativo:
+           em build dual rodando TCP, scan+reconnect derrubaria o STA. */
+        if (s_wifi_channel > 0 && radio_mode_active() == RADIO_MODE_ESPNOW) {
             /* After connection, verify channel matches configured. If not, the
                node likely connected to an extender on a different channel.
                Scan for the correct BSSID and force-reconnect. */

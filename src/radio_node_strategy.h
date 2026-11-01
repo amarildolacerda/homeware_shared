@@ -4,7 +4,10 @@
 #ifndef HW_SHARED_RADIO_NODE_STRATEGY_H
 #define HW_SHARED_RADIO_NODE_STRATEGY_H
 
-#ifdef TCP_ENABLED
+#ifdef RADIO_SELECT_ENABLED
+#include "selectable_node_protocol.h"
+typedef SelectableNodeProtocol NodeRadioType;
+#elif defined(TCP_ENABLED)
 #include "tcp_node_protocol.h"
 typedef TcpNodeProtocol NodeRadioType;
 #elif defined(ESPNOW_ENABLED)

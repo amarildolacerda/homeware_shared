@@ -48,6 +48,10 @@ public:
     virtual uint32_t tx_count() const { return 0; }
     virtual uint32_t rx_count() const { return 0; }
     virtual bool has_gateway() const { return true; }
+
+    // Transporte em uso. true = TCP/HTTP (TcpNodeProtocol ou
+    // SelectableNodeProtocol em modo TCP); false = ESP-NOW/LoRa.
+    virtual bool uses_tcp() const { return false; }
     NodeCallbacks callbacks;
 };
 
