@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #ifdef ESP32
   #include <WiFi.h>
+  #include <esp_idf_version.h>
 #else
   #include <ESP8266WiFi.h>
 #endif
@@ -12,13 +13,27 @@
 static EspnowNodeProtocol* s_self = nullptr;
 
 #if defined(ARDUINO_ARCH_ESP32)
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+extern "C" void espnow_recv_cb(const esp_now_recv_info_t* info, const uint8_t* data, int len) {
+    if (s_self && info && info->src_addr) {
+        s_self->handle_frame(info->src_addr, data, (size_t)len);
+    }
+}
+#else
 extern "C" void espnow_recv_cb(const uint8_t* mac, const uint8_t* data, int len) {
     if (s_self) s_self->handle_frame(mac, data, (size_t)len);
 }
+#endif
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+extern "C" void espnow_send_cb(const esp_now_send_info_t* info, esp_now_send_status_t status) {
+    if (s_self) s_self->on_send_done(info ? info->des_addr : nullptr, (uint8_t)status);
+}
+#else
 extern "C" void espnow_send_cb(const uint8_t* mac, esp_now_send_status_t status) {
     if (s_self) s_self->on_send_done(mac, (uint8_t)status);
 }
+#endif
 #else
 extern "C" void espnow_recv_cb(uint8_t* mac, uint8_t* data, uint8_t len) {
     if (s_self) s_self->handle_frame(mac, data, len);
