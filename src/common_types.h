@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define BATTERY_LEVEL_UNAVAILABLE 0xFF  // No battery telemetry is available.
+
 typedef struct __attribute__((packed)) {
     uint8_t state;
 } payload_onoff_t;

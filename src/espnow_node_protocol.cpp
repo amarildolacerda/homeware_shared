@@ -217,7 +217,7 @@ void EspnowNodeProtocol::send_sensor_data() {
     hdr->sequence = m_sequence++;
     memcpy(hdr->sensor_mac, m_mac, 6);
     hdr->sensor_type = callbacks.get_sensor_type ? callbacks.get_sensor_type() : 0;
-    hdr->battery_pct = 100;
+    hdr->battery_pct = callbacks.get_battery_pct ? callbacks.get_battery_pct() : 100;
     hdr->rssi = 0;
     hdr->payload_len = payload_len;
     // Fill node WiFi IP
@@ -239,7 +239,7 @@ void EspnowNodeProtocol::send_heartbeat() {
     hdr->sequence = m_sequence++;
     memcpy(hdr->sensor_mac, m_mac, 6);
     hdr->sensor_type = 0;
-    hdr->battery_pct = 100;
+    hdr->battery_pct = callbacks.get_battery_pct ? callbacks.get_battery_pct() : 100;
     hdr->rssi = 0;
     hdr->payload_len = 0;
     // Fill node WiFi IP
