@@ -25,15 +25,29 @@ void SelectableNodeProtocol::set_mode(uint8_t mode)
     if (!radio_mode_compiled(mode)) return;
     m_mode = mode;
     radio_mode_set_active(mode);
+    sync_callbacks();
+}
+
+// Os nodes escrevem direto em `s_radio.callbacks = {...}` (membro herdado de
+// NodeProtocol). Como ESP-NOW e TCP são objetos separados, cada um tem o seu
+// próprio NodeCallbacks: sem esta cópia o protocolo ativo enxerga tudo nullptr
+// e nunca chama on_command/get_sensor_payload (regra 56).
+void SelectableNodeProtocol::sync_callbacks()
+{
+    m_espnow.callbacks = callbacks;
+    m_tcp.callbacks = callbacks;
 }
 
 void SelectableNodeProtocol::begin()
 {
+    sync_callbacks();
     active().begin();
 }
 
 void SelectableNodeProtocol::loop()
 {
+    // Nodes podem atribuir callbacks depois do begin(); manter sincronizado.
+    sync_callbacks();
     active().loop();
 }
 

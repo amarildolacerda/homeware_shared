@@ -67,6 +67,9 @@ private:
     EspnowNodeProtocol m_espnow;
     TcpNodeProtocol m_tcp;
 
+    // Copia NodeProtocol::callbacks para o protocolo ativo (ver regra 56).
+    void sync_callbacks();
+
     NodeProtocol& active();
     const NodeProtocol& active() const;
 };

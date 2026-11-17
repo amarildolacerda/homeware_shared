@@ -53,7 +53,11 @@ public:
     // Transporte em uso. true = TCP/HTTP (TcpNodeProtocol ou
     // SelectableNodeProtocol em modo TCP); false = ESP-NOW/LoRa.
     virtual bool uses_tcp() const { return false; }
-    NodeCallbacks callbacks;
+
+    // Zero-inicializado de propósito: um callback ausente é nullptr (checado
+    // pelos protocolos) em vez de ponteiro indefinido. Ver regra 56 do
+    // AGENTS.md (SelectableNodeProtocol precisa propagar os callbacks).
+    NodeCallbacks callbacks = {};
 };
 
 #endif
